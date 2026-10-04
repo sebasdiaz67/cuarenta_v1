@@ -3,7 +3,7 @@
  * Archivo: js/game.js — Reglas del Cuarenta, IA, máquina de estados, entrada, composición de pantallas y bucle
  * Depende de: config.js → audio.js → draw.js (cargados antes en index.html)
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.2.0
+ * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.3.0
  */
 (function (CU) {
   'use strict';
@@ -237,6 +237,7 @@
   function flyPoints(who, before) {
     if (who.score <= before) return;
     const kind = Math.floor(who.score / 10) > Math.floor(before / 10) ? 'perro' : 'tanto';
+    if (kind === 'perro') Sfx.playPerro();                 // se completó una decena: ladrido
     const t = who === G.p ? { x: 16 + 46, y: 612 } : { x: W - 16 - 46, y: 122 };
     flyers.push({ kind, x: FLY.START.x, y: FLY.START.y, tx: t.x, ty: t.y, t: 0 });
   }
@@ -295,14 +296,14 @@
     who.score += pts.points;
     flyPoints(who, before);
     const cx = W / 2, cy = (TABLE_TOP + TABLE_BOTTOM) / 2;
-    if (pts.caida && pts.limpia) { popup('¡CAÍDA Y LIMPIA!', cx, cy, '#ffe066', 26); Sfx.caida(); setTimeout(() => Sfx.limpia(), 250); }
-    else if (pts.caida) { popup(CU.TEXT.caida, cx, cy, '#ffe066', 34); Sfx.caida(); }
+    if (pts.caida && pts.limpia) { popup('¡CAÍDA Y LIMPIA!', cx, cy, '#ffe066', 26); Sfx.playCaidaYLimpia(); }   // látigo + risa
+    else if (pts.caida) { popup(CU.TEXT.caida, cx, cy, '#ffe066', 34); Sfx.playCaida(); }                     // látigo
     else if (pts.limpia) { popup(CU.TEXT.limpia, cx, cy, '#9be7ff', 34); Sfx.limpia(); }
     else Sfx.capture();
     if (pts.limpiaAnulada) popup(CU.TEXT.regla38, cx, cy + 34, '#ffb3a1', 13);
     if (!isP && (pts.caida || pts.limpia)) say(pts.caida ? 'caida' : 'limpia');
     if (!isP && isDevil()) {
-      if (pts.caida || pts.limpia) { Imps.burst(cx, cy, C.IMPS.BURST_IMPS, C.IMPS.BURST_SPARKS); Sfx.devil(); }
+      if (pts.caida || pts.limpia) { Imps.burst(cx, cy, C.IMPS.BURST_IMPS, C.IMPS.BURST_SPARKS); if (!(pts.caida && pts.limpia)) Sfx.devil(); }   // la caída+limpia ya trae su risa
       else Imps.burst(card.x, card.y, 0, 10);              // cualquier levantada del Diablo chisporrotea
     }
     if (isP && pts.caida) say('suffer');
@@ -503,7 +504,7 @@
 
   function onTap(p) {
     Sfx.unlock();
-    if (state !== S.JUEGO_TERMINADO) Sfx.playBGM();          // autoplay: el navegador exige un gesto
+    if (state !== S.JUEGO_TERMINADO) Sfx.startBGM();          // autoplay: el navegador exige un gesto
     if (state === S.MENU) {
       if (inRect(p, BTN.sound)) { Sfx.toggle(); return; }
       for (let i = 0; i < CU.RIVALS.length; i++) {
@@ -513,8 +514,8 @@
       return;
     }
     if (state === S.JUEGO_TERMINADO && stateTime > 0.8) {
-      if (inRect(p, BTN.again)) { newGame(CU.RIVALS.indexOf(G.rival)); Sfx.playBGM(); }
-      else if (inRect(p, BTN.menu)) { G = null; Imps.clear(); setState(S.MENU); Sfx.playBGM(); }
+      if (inRect(p, BTN.again)) { newGame(CU.RIVALS.indexOf(G.rival)); Sfx.startBGM(); }
+      else if (inRect(p, BTN.menu)) { G = null; Imps.clear(); setState(S.MENU); Sfx.startBGM(); }
       return;
     }
     if (state !== S.TURNO_JUGADOR) return;
@@ -531,7 +532,7 @@
   });
   window.addEventListener('keydown', (e) => {
     if (state === S.TURNO_JUGADOR && G && /^[1-5]$/.test(e.key)) {
-      const c = G.p.hand[parseInt(e.key, 10) - 1]; if (c) { Sfx.unlock(); Sfx.playBGM(); playCard(G.p, c); }
+      const c = G.p.hand[parseInt(e.key, 10) - 1]; if (c) { Sfx.unlock(); Sfx.startBGM(); playCard(G.p, c); }
     }
   });
   window.addEventListener('resize', resize);
@@ -665,6 +666,7 @@
     });
     button(BTN.sound, Sfx.isMuted() ? 'Sonido: NO' : 'Sonido: SÍ', false);
     txt('v' + CU.META.version + ' | Desarrollado por ' + CU.META.author, W - 12, 628, 7.5, 'rgba(251,243,228,0.55)', 'right', '500', false);
+    const au = Sfx.status(); txt('Audio: ' + au.mode + (au.loaded.length ? ' ' + au.loaded.length + '/6' : ''), W - 12, 612, 7.5, 'rgba(251,243,228,0.55)', 'right', '500', false);
   }
 
   function render() {
@@ -689,8 +691,9 @@
     requestAnimationFrame(frame);
   }
   resize();
+  Sfx.preloadAudio();                                       // asíncrona: el juego arranca ya; la música cambia a muestras al llegar
   requestAnimationFrame((t) => { last = t; frame(t); });
 
   // Gancho para pruebas automatizadas.
-  CU._debug = { S, get state() { return state; }, get game() { return G; }, get frames() { return frames; }, newGame, playCard, aiChoose, setState, render };
+  CU._debug = { S, get state() { return state; }, get game() { return G; }, get frames() { return frames; }, newGame, playCard, aiChoose, setState, render, flyPoints };
 })(window.CU);

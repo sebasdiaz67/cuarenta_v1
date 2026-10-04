@@ -24,6 +24,8 @@ await page.goto(url); await wait(400);
 check('Autoría y título', (await page.title()) === 'Cuarenta: El Juicio de las Leyendas'
   && (await page.getAttribute('meta[name="author"]', 'content')) === 'Byron Sebastián Rosero Díaz');
 await shot('01_menu');
+const au = await page.evaluate(() => CU_AUDIO.preloadAudio());
+check('Audio con file://: respaldo sintetizado sin intentar fetch', au.mode === 'sintetizado (file://)' && au.loaded.length === 0, JSON.stringify(au));
 
 // ---------- Reglas (puras) ----------
 const rules = await page.evaluate(() => {

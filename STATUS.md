@@ -1,7 +1,7 @@
 # STATUS — cuarenta
 
 **Última actualización:** 2026-10-04
-**Estado general:** v1.2.0 — Arte cartoon (figuras satíricas, perros y tantos), pasacalle procedural y diablillos. Sin empaquetado.
+**Estado general:** v1.3.0 — Arte cartoon, perros y tantos, diablillos y motor de audio por muestras (sin muestras reales aún: suena el respaldo sintetizado). Sin empaquetado.
 
 ## Features
 | Spec | Estado | Notas |
@@ -9,14 +9,16 @@
 | [001-motor-y-reglas](specs/001-motor-y-reglas/spec.md) | Implementada | Smoke 31/31 |
 | [002-arte-musica-dinamismo](specs/002-arte-musica-dinamismo/spec.md) | Implementada | Smoke 37/37 · render p95 2.5 ms (CPU ×4) |
 | [003-arte-cartoon](specs/003-arte-cartoon/spec.md) | Implementada | Smoke 39/39 · perros y tantos en el marcador |
+| [004-audio-muestras](specs/004-audio-muestras/spec.md) | Implementada · faltan muestras | audio 12/12 (HTTP) · smoke 40/40 |
 
 ## Próximos pasos (priorizados)
 1. Probar en celular real: legibilidad de cartas y dificultad de cada leyenda.
-2. Spec 004 — Retratos y escenarios en el mismo estilo cartoon (hoy desentonan con las cartas).
-3. Spec 005 — Variar la música por leyenda (el bucle de 16 compases puede cansar) y efectos propios de cada rival.
-4. Spec 006 — Elegir qué suma levantar cuando hay varias; modo «2 de 3 chicas»; estadísticas.
+2. Spec 005 — Retratos y escenarios en el mismo estilo cartoon (hoy desentonan con las cartas).
+3. Spec 006 — Variar el patrón de banda por leyenda y efectos propios de cada rival.
+4. Spec 007 — Elegir qué suma levantar cuando hay varias; modo «2 de 3 chicas»; estadísticas.
 
 ## Bloqueos / pendientes del usuario
+- Conseguir las 6 muestras (grabación propia o CC0) según `www/audio/LEEME.md`.
 - Escuchar el pasacalle y decidir si el tempo/instrumentación convence.
 - Confirmar el cuarto palo (Campanas de San Francisco) y las variantes de reglas de su casa.
 
@@ -28,3 +30,4 @@
 - 2026-10-04 — Proyecto creado (SDD). Spec 001: reglas verificadas y configurables, 4 leyendas con IA y frases, estados, sonido, vista previa de jugadas. Smoke 31/31.
 - 2026-10-04 — Spec 002 (v1.1.0): audio.js y draw.js separados, palos vectoriales rediseñados, reverso azul/rojo, pasacalle procedural, lanzamiento flotante, diablillos. Corregidos 2 solapes de v1.0. Smoke 37/37.
 - 2026-10-04 — Spec 003 (v1.2.0): estilo cartoon propio (sin referencias adjuntas), Rey diablo, Sota Padre Almeida, Caballo Chulla, As con angelito/diablillo, perros y tantos reemplazan las rayas, ParticleSystem, Lerp lineal con targetX/targetY. Smoke 39/39.
+- 2026-10-04 — Spec 004 (v1.3.0): audio.js por muestras (preloadAudio, secuenciador 130 BPM, playCaida/playCaidaYLimpia/playPerro, window.CU_AUDIO) con respaldo sintetizado. Corregida precarga concurrente duplicada. audio 12/12, smoke 40/40.
