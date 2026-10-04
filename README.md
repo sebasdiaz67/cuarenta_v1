@@ -1,48 +1,248 @@
 # Cuarenta: El Juicio de las Leyendas
 
-El juego de cartas de Quito contra sus leyendas, ambientado en las Fiestas de Quito. HTML5 Canvas 2D + JavaScript vanilla: sin dependencias, sin módulos ES, funciona sin conexión y con doble clic (`file://`).
+El juego de cartas de Quito contra cuatro leyendas de la ciudad, ambientado en las Fiestas de Quito.
+HTML5 Canvas 2D + JavaScript vanilla: **sin dependencias, sin módulos ES, sin archivos de imagen**. Funciona sin conexión y con doble clic (`file://`).
 
-## Rivales
-| Leyenda | Escenario | Estilo | Dificultad |
-|---|---|---|---|
-| El Chulla Quiteño | La Ronda | Ataca y busca puntos ya; arriesga | ★☆☆☆ |
-| El Gallo de la Catedral | Plaza Grande | Defensivo: no deja caídas fáciles | ★★☆☆ |
-| El Padre Almeida | Convento de San Diego | Impredecible | ★★★☆ |
-| Cantuña y el Diablo | Atrio de San Francisco | Cuenta las cartas que ya salieron | ★★★★ |
+**Versión:** 1.3.1 · **Autor:** Byron Sebastián Rosero Díaz — Ingeniero de Software
 
-## Reglas implementadas
-- Baraja de 40: As, 2–7, J (10), Q (11) y K (12) por brillo; sin 8 ni 9. Las cartas muestran J, Q, K. Cuatro brillos: Soles de Oro, Corazones de la Basílica, Espadas de la Independencia, Campanas de San Francisco. El palo no influye.
-- Se reparten 5 cartas a cada uno, cuatro veces por mazo; empieza el que no da.
-- **Levantar**: carta igual; **suma** de cartas As–7 (las figuras no suman); y luego **escalera** ascendente (… 6, 7, J, Q, K). Las figuras nunca suman: solo se capturan por igualdad o por escalera.
-- **Caída** +2 (levantar con igual la carta que el rival acaba de jugar) · **Limpia** +2 (dejar la mesa vacía) · **Ronda** +2 (tres iguales al recibir) · **Cuatro iguales** gana la chica.
-- **Cartón** al terminar el mazo: quien tenga más cartas, con 20 o más, suma 6 + 1 por carta extra (redondeado a par). Empate 20–20: dos por dar.
-- **Regla de 38**: con 38 solo vale la caída (no limpia, ronda ni cartón).
-- Gana quien llega a **40**.
-- Variantes regionales configurables en `CU.RULES` (`config.js`): bloqueo del cartón desde 30, sobrantes al último que levantó, etc.
+---
+
+## Índice
+1. [Cómo se juega](#cómo-se-juega)
+2. [Reglas](#reglas)
+3. [Rivales e IA](#rivales-e-ia)
+4. [Sonido y música](#sonido-y-música)
+5. [Imágenes y arte](#imágenes-y-arte)
+6. [Animación y rendimiento](#animación-y-rendimiento)
+7. [Datos guardados en el dispositivo](#datos-guardados-en-el-dispositivo)
+8. [Estructura del código](#estructura-del-código)
+9. [Configuración](#configuración)
+10. [Pruebas](#pruebas)
+11. [Pendientes conocidos](#pendientes-conocidos)
+12. [Fuentes y autoría](#fuentes-y-autoría)
+
+---
 
 ## Cómo se juega
-Toca una carta de tu mano para ver qué levanta (se resaltan las cartas y se anuncia caída/limpia); tócala otra vez para jugarla. Teclado: 1–5.
+1. En el menú elige una leyenda (las estrellas indican la dificultad).
+2. Primer toque sobre una carta de tu mano: se resalta lo que levantaría y se anuncia si es caída o limpia.
+3. Segundo toque sobre la misma carta: la juegas. En teclado, las teclas **1–5** juegan directamente.
+4. Gana la chica quien llegue primero a **40 puntos**.
 
-## Estructura
+## Reglas
+Implementadas en `CU.Rules` (`js/game.js`), como funciones puras. Las variantes se configuran en `CU.RULES` (`js/config.js`).
+
+### Baraja
+| Concepto | Valor |
+|---|---|
+| Cartas | **40** = 4 brillos × 10 valores |
+| Valores | As, 2, 3, 4, 5, 6, 7, **J** (10), **Q** (11), **K** (12). **No hay 8 ni 9.** |
+| Brillos (palos) | Soles de Oro · Corazones de la Basílica · Espadas de la Independencia · Campanas de San Francisco |
+| ¿Influye el palo? | No. Solo cuenta el valor. |
+| Orden de escalera | 1, 2, 3, 4, 5, 6, 7, J, Q, K |
+| Valor para sumar | Solo As–7. **J, Q y K nunca suman**, ni entre sí ni con números. |
+
+### Reparto
+- 5 cartas a cada jugador, 4 repartos por mazo (5 × 2 × 4 = 40).
+- Empieza a jugar el que **no** da. El que da se alterna en cada mazo.
+
+### Cómo se levanta (orden de prioridad)
+1. **Por igual:** una carta del mismo valor. Si una de ellas es la que el rival acaba de jugar, se toma esa (para que valga la caída).
+2. **Por suma:** solo si no hubo igual y la carta jugada es As–7. Se busca la combinación de cartas As–7 que sume exactamente su valor (mínimo 2 cartas). Si hay varias, se toma automáticamente la que más cartas levanta.
+3. **Escalera:** después de levantar (por igual, y por suma si `ESCALERA_TRAS_SUMA` está activo), se siguen levantando las cartas consecutivas ascendentes desde la carta jugada: … 6, 7, J, Q, K. Se corta en el primer valor que falte.
+4. Si no levanta nada, la carta se queda en la mesa.
+
+Ejemplos verificados en las pruebas:
+- 5 sobre [5] → levanta el 5.
+- 4 sobre [4, 5, 6, K] → levanta 4, 5, 6 (falta el 7: la K no entra).
+- 7 sobre [3, 4, K] → levanta 3 + 4.
+- 7 sobre [3, 4, J] → por suma 3 + 4; la J entra **por escalera** (7 → J), no por suma.
+- K sobre [5, 7] → no levanta. K sobre [J, Q] → no levanta (las figuras no suman).
+
+### Puntos
+| Jugada | Puntos | Condición |
+|---|---|---|
+| **Caída** | +2 | Levantar **por igual** la carta que el rival acaba de jugar. |
+| **Limpia** | +2 | Dejar la mesa vacía. Se acumula con la caída (caída y limpia = 4). |
+| **Ronda** | +2 | Recibir tres cartas del mismo valor en el reparto. |
+| **Cuatro iguales** | gana la chica | Recibir las cuatro del mismo valor. |
+| **Cartón** | 6 + 1 por carta sobre 20, redondeado a par | Al terminar el mazo, quien tiene más cartas (con 20 o más). 20 → 6, 21–22 → 8, 23–24 → 10, 30 → 16. |
+| **Dos por dar** | +2 | Empate de cartón 20–20: los recibe el que repartió. |
+
+- **Regla de 38:** con 38 puntos solo vale la caída. No suman la limpia, la ronda ni el cartón. Cuando el rival llega a 38 lo avisa: «¡Treinta y ocho que no juegan!».
+- **Sobrantes:** las cartas que quedan en la mesa al final del mazo son para el último que levantó.
+- **Victoria:** el primero en llegar a 40. La comprobación se hace después de cada jugada, de cada ronda y del cartón.
+
+### Marcador: perros y tantos
+El puntaje se muestra con el marcador tradicional en lugar de rayas:
+- **Perro** (carta verde manzana con un perrito corriendo) = 10 puntos.
+- **Tanto** (carta naranja con un «2») = 2 puntos.
+- Ejemplo: 24 puntos = 2 perros + 2 tantos.
+
+Al sumar puntos, la carta aparece en grande y vuela hasta el marcador. Si el puntaje cruzó una decena es un perro (y suena el ladrido); si no, un tanto.
+
+## Rivales e IA
+Definidos en `CU.RIVALS` (`js/config.js`). Cada rival tiene leyenda, colores, escenario y frases quiteñas para cada situación: saludo, caída, limpia, sufrir una caída, 38, ganar y perder.
+
+| Leyenda | Escenario | Estilo de juego | Dificultad |
+|---|---|---|---|
+| El Chulla Quiteño | La Ronda | Busca puntos y cartas ya; arriesga mucho | ★☆☆☆ |
+| El Gallo de la Catedral | Plaza Grande | Defensivo: evita dejar caídas | ★★☆☆ |
+| El Padre Almeida | Convento de San Diego | Impredecible (mucho azar) | ★★★☆ |
+| Cantuña y el Diablo | Atrio de San Francisco | Cuenta las cartas que ya salieron y mira una jugada adelante | ★★★★ |
+
+**Cómo decide la IA** (`aiChoose`): para cada carta de su mano calcula un puntaje con estos pesos (`style` de cada rival):
+- `points`: puntos inmediatos de la jugada.
+- `cards`: cantidad de cartas que levanta.
+- `risk`: probabilidad de que el rival tenga la carta para hacerle caída o limpia (cálculo hipergeométrico).
+- `noise`: azar.
+- `memory`: si cuenta las cartas vistas. Sin memoria asume un mazo promedio.
+- `lookahead`: evita regalar escaleras.
+
+Juega la carta con el mejor puntaje, tras una pausa «humana» de 0.7 a 1.3 s.
+
+## Sonido y música
+Todo en `js/audio.js` (`window.CU_AUDIO`, alias `CU.Audio` / `CU.Sfx`). Web Audio API, sin librerías.
+
+### Arquitectura
 ```
-www/index.html     canvas + metadatos de autoría
-www/css/style.css  reset táctil, paño verde de cantina, área segura
-www/js/config.js   lore, rivales y frases, baraja, reglas configurables, tiempos
-www/js/game.js     1) reglas puras  2) sonido  3) IA  4) estados  5) entrada  6) render  7) bucle 60 Hz
-tests/smoke.mjs    31 comprobaciones: 20 de reglas + partida completa automática
+preloadAudio() ─ fetch ─► decodeAudioData ─► AudioBuffer (caché)
+[efectos] ─► sfxBus ─┐
+                     ├─► master ─► altavoz
+[música]  ─► bgmBus ─┘
 ```
+- Cada sonido crea su propio nodo y lo libera al terminar (`onended`). Hay un tope de **24 voces** simultáneas.
+- La música se agenda con el reloj de audio (`audioCtx.currentTime`). Un temporizador cada 25 ms agenda los próximos 120 ms, así que el tempo no depende de los FPS.
+- El sonido arranca con el primer toque (política de autoplay del navegador, Android y Capacitor) y se pausa con la app en segundo plano.
+- El botón **Sonido: SÍ/NO** del menú silencia todo y recuerda la elección.
+
+### Muestras de audio (`www/audio/`)
+| Archivo | Cuándo suena |
+|---|---|
+| `bombo.wav` | Música: tiempos 1, 2 y 3 |
+| `platillo.wav` | Música: tiempo 2 |
+| `vientos_pasacalle.wav` | Música: tiempo 4 (máximo 0.46 s) |
+| `latigo.wav` | **Caída** (`playCaida`) y caída + limpia |
+| `risa_diablo.wav` | **Caída + limpia** (180 ms después del látigo) y jugadas fuertes de Cantuña |
+| `perro_ladrido.wav` | Completar un **perro** (`playPerro`) |
+
+> ⚠️ **Todavía no hay muestras reales.** `www/audio/LEEME.md` tiene la especificación técnica (formato, duración, licencia). Mientras falten, cada sonido usa su versión sintetizada. El menú indica el modo activo («Audio: …»).
+
+### Música («Banda de Pueblo Dicembrina»)
+- **Con muestras:** bucle a **130 BPM**: 1 bombo · 2 bombo + platillo · 3 bombo · 4 vientos (editable en `PATTERN`).
+- **Sin muestras o con `file://`:** pasacalle **sintetizado y original** en 2/4 (La menor armónica → Do mayor → dominante, 16 compases), con quena (onda triángulo con vibrato), banda (diente de sierra filtrada), tuba (onda cuadrada filtrada) y percusión. **No es «El Chulla Quiteño»**: esa obra está protegida.
+- Se detiene en la pantalla final y vuelve con «Revancha» o «Menú».
+
+### Efectos sintetizados (no tienen muestra)
+| Efecto | Cuándo |
+|---|---|
+| Reparto | Cada carta repartida |
+| Selección | Primer toque sobre una carta |
+| Carta a la mesa | Al jugar |
+| Levantar | Captura sin puntos |
+| Limpia | Arpegio ascendente |
+| Ronda | Acorde de tres notas |
+| Tic | Conteo del cartón |
+| Victoria / derrota | Fanfarria / caída melódica |
+
+### Por qué `file://` no carga muestras
+El navegador bloquea `fetch()` de archivos locales. Para oír las muestras sirve el juego por HTTP (`npx serve www`) o en Capacitor (`https://localhost`).
+
+## Imágenes y arte
+**El juego no usa archivos de imagen ni fuentes externas.** Todo se dibuja con vectores en Canvas 2D (`js/draw.js`, `CU.Draw`) con un estilo cartoon propio: contorno de tinta negra y colores planos saturados. Texto en la fuente del sistema (`system-ui`).
+
+| Elemento | Descripción |
+|---|---|
+| **Soles de Oro** | Sol incásico con dos coronas de rayos y rostro del Inti (en tamaño grande) |
+| **Corazones de la Basílica** | Corazón rojo con ventanal gótico en arco y cruz dorada |
+| **Espadas de la Independencia** | Espada de hoja delgada con guarnición dorada cruzada, puño y pomo |
+| **Campanas de San Francisco** | Campana colonial de bronce con asa, cordones y badajo |
+| **As** | El palo en grande, con un angelito y un diablillo a los lados |
+| **J (Jota)** | Padre Almeida: sombrero de teja, cara de juerguista asustado, pergamino del pacto con lacre |
+| **Q (Caballo)** | El Chulla Quiteño montado en un caballito de palo |
+| **K (Rey)** | Diablillo gordo y pícaro, cuernos rojos, corona, barba blanca y copa de canelazo |
+| **Reverso** | Telar de rombos azul y rojo (colores de Quito) con medallón solar |
+| **Perro / Tanto** | Cartas de puntos: verde con perrito / naranja con «2» y «caída por guapo · dos por shunsho» |
+| **Paño** | Fieltro verde de cantina con textura, pintado una sola vez al iniciar |
+| **Escenarios** | Cielo y siluetas de cada lugar (La Ronda, Plaza Grande, San Diego, atrio de San Francisco) con banderines de fiesta |
+| **Retratos** | Chulla, Gallo, Padre Almeida y Cantuña (estilo de la v1.0, aún sin pasar a cartoon) |
+| **Diablillos** | Solo contra Cantuña: suben del atrio, y salen en ráfaga con chispas rojas y amarillas cuando el Diablo suma puntos |
+
+La figura de cada carta lleva el color de su palo en la capa, la estola o el corbatín.
+
+## Animación y rendimiento
+- **Bucle:** `requestAnimationFrame` con paso fijo a 60 Hz (acumulador, máximo 8 pasos por fotograma).
+- **Pantalla:** resolución lógica de 360×640 vertical, escalada al dispositivo. Usa `devicePixelRatio` (tope 3) y respeta el área segura (notch).
+- **Cartas:** cada carta tiene `x, y` (posición actual) y `targetX, targetY` (destino). Se desliza por interpolación lineal en 0.2 s al jugar y al repartir, y se inclina en vuelo.
+- **Optimizaciones para gama baja:**
+  - Palos, figuras, reversos, perros, tantos y diablillos se dibujan una sola vez como imagen interna (sprite) a la resolución real y luego solo se copian.
+  - Sin `shadowBlur` (es lo más caro del canvas); se usa una sombra desplazada.
+  - Partículas en un pool fijo de 80, sin crear memoria nueva en cada fotograma.
+- **Medido:** con la CPU emulada 4 veces más lenta y 80 partículas, el 95 % de los fotogramas se dibuja en 4 ms o menos (el límite para 60 FPS es 16.7 ms).
+
+## Datos guardados en el dispositivo
+Solo en `localStorage`. Sin cuentas, sin red y sin datos personales.
+
+| Clave | Contenido |
+|---|---|
+| `cu.muted` | `1` si el sonido está apagado |
+| `cu.wins.<rival>` | Veces que le ganaste a cada leyenda |
+
+## Estructura del código
+```
+www/index.html        canvas, metadatos de autoría, orden de carga de scripts
+www/css/style.css     reset táctil, paño de fondo, área segura
+www/js/config.js      metadatos, motor (CFG), reglas (RULES), baraja, brillos, rivales y frases, textos
+www/js/audio.js       muestras, secuenciador, efectos sintetizados, autoplay → CU_AUDIO
+www/js/draw.js        arte procedural, sprites, perros/tantos, retratos, escenarios, partículas → CU.Draw
+www/js/game.js        reglas puras, IA, estados, entrada, composición de pantallas, bucle
+www/audio/LEEME.md    especificación de las muestras de audio
+tests/smoke.mjs       reglas + partida completa + rendimiento (file://)
+tests/audio.mjs       motor de audio por HTTP con muestras de prueba
+tests/make-fixtures.mjs  genera los WAV de prueba (tests/fixtures/audio/)
+specs/                especificaciones SDD (001 motor y reglas · 002 arte, música y dinamismo · 003 arte cartoon · 004 audio)
+```
+Orden de carga obligatorio: `config.js` → `audio.js` → `draw.js` → `game.js`.
+
+**Estados del juego:** `MENU → REPARTIR_CARTAS → TURNO_JUGADOR ⇄ TURNO_IA → VALIDAR_JUGADA → … → CONTEO_CARTON → … → JUEGO_TERMINADO`.
+
+## Configuración
+| Dónde | Qué se ajusta |
+|---|---|
+| `CU.RULES` | `WIN_POINTS` (40), `CAIDA`, `LIMPIA`, `RONDA` (2), `CUATRO_IGUALES_GANA`, `ESCALERA_TRAS_SUMA`, `CARTON_MIN` (20), `CARTON_BASE` (6), `CARTON_REDONDEO_PAR`, `REGLA_38`, `CARTON_BLOQUEO_30` (variante, desactivada), `SOBRANTES_AL_ULTIMO`, `DOS_POR_DAR` |
+| `CU.CFG` | Tamaños de carta, tiempos de animación (`ANIM_PLAY`, `ANIM_DEAL`, `CARD_EASE`, `CARD_TILT`…), pausa de la IA, cantidad de diablillos (`IMPS`) |
+| `CU_AUDIO.CFG` | Carpeta y extensión de las muestras (`EXT: 'wav'`; usar `'ogg'` para pesar menos), BPM, volúmenes, tope de voces |
+| `CU_AUDIO.PATTERN` | Patrón del bucle de banda |
 
 ## Pruebas
 ```
 npm i -D playwright && npx playwright install chromium
-node tests/smoke.mjs
+node tests/smoke.mjs                                  # 50 comprobaciones (file://)
+node tests/make-fixtures.mjs && node tests/audio.mjs  # 12 comprobaciones (HTTP)
 ```
+Cubren:
+- Reglas: baraja, nomenclatura J/Q/K, igual, suma, escalera, figuras que no suman, caída, limpia, regla de 38, ronda, cartón y dos por dar.
+- Interfaz: tocar para elegir y jugar.
+- Una partida completa automática, verificando que siempre haya 40 cartas en juego.
+- Rendimiento con la CPU 4 veces más lenta, música, lanzamiento flotante, diablillos y perros/tantos.
+- Audio: patrón exacto, desvío del ritmo menor a 1 ms, liberación de nodos y tope de voces.
 
-## Fuentes de las reglas
+## Pendientes conocidos
+- Grabar o licenciar las 6 muestras de audio (ver `www/audio/LEEME.md`).
+- Pasar retratos y escenarios al estilo cartoon (hoy desentonan con las cartas).
+- Confirmar si después de una suma se sigue la escalera hacia las figuras (`ESCALERA_TRAS_SUMA`).
+- Probar en un celular real: legibilidad de las figuras en la mesa (50×72) y dificultad de Cantuña, que gana la mayoría de las partidas simuladas.
+- Elegir qué suma levantar cuando hay varias (hoy es automático).
+
+## Fuentes y autoría
+**Reglas:**
 - Tabletopia — «Reglas del 40»: https://c.tabletopia.com/games/cuarenta/rules/reglas-del-40/es
 - play40.app — Reglas del Cuarenta: https://play40.app/rules
 
-## Autoría
-**Cuarenta: El Juicio de las Leyendas** · v1.0.0
+Donde las fuentes difieren, la opción quedó configurable en `CU.RULES`.
+
+**Arte y música:** diseño procedural original. No reproduce barajas comerciales ni canciones protegidas.
+
+**Cuarenta: El Juicio de las Leyendas** · v1.3.1
 Byron Sebastián Rosero Díaz — Ingeniero de Software
 © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. Software propietario: ver [`LICENSE`](LICENSE).
