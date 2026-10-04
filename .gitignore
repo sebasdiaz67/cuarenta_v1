@@ -1,0 +1,19 @@
+# Dependencias y builds
+node_modules/
+dist/
+build/
+android/app/build/
+android/.gradle/
+android/build/
+*.apk
+*.aab
+
+# Llaves de firma: NUNCA al repositorio (respaldar aparte)
+*.jks
+*.keystore
+keystore.properties
+
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini

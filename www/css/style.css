@@ -1,0 +1,35 @@
+/*!
+ * Cuarenta: El Juicio de las Leyendas — css/style.css
+ * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software · v1.0.0
+ * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados.
+ */
+:root {
+  --pano: #0f5132;        /* paño verde de mesa de cantina */
+  --pano-oscuro: #06261a;
+  --madera: #3b2412;
+  --oro: #f5c542;
+}
+
+/* Reset táctil completo: sin scroll elástico, zoom, selección, menú contextual ni resaltado al tocar */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  width: 100%; height: 100%;
+  position: fixed; inset: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  background: radial-gradient(ellipse at 50% 45%, var(--pano) 0%, var(--pano-oscuro) 75%);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Área segura: el canvas se ubica dentro de los insets del notch y las barras del sistema */
+#stage {
+  position: absolute; inset: 0;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  display: flex; align-items: center; justify-content: center;
+}
+canvas#game { display: block; touch-action: none; border-radius: 6px; box-shadow: 0 0 0 3px var(--madera), 0 10px 40px rgba(0,0,0,0.6); }

@@ -1,0 +1,6 @@
+# Fines de línea LF en el repo; los .ps1 con CRLF para Windows PowerShell
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.png binary
+*.jpg binary
+*.zip binary
