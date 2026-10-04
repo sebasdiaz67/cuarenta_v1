@@ -1,19 +1,20 @@
 # STATUS — cuarenta
 
 **Última actualización:** 2026-10-04
-**Estado general:** v1.1.0 — Jugable contra 4 leyendas con naipes quiteños, música de pasacalle y diablillos. Sin empaquetado.
+**Estado general:** v1.2.0 — Arte cartoon (figuras satíricas, perros y tantos), pasacalle procedural y diablillos. Sin empaquetado.
 
 ## Features
 | Spec | Estado | Notas |
 |---|---|---|
 | [001-motor-y-reglas](specs/001-motor-y-reglas/spec.md) | Implementada | Smoke 31/31 |
 | [002-arte-musica-dinamismo](specs/002-arte-musica-dinamismo/spec.md) | Implementada | Smoke 37/37 · render p95 2.5 ms (CPU ×4) |
+| [003-arte-cartoon](specs/003-arte-cartoon/spec.md) | Implementada | Smoke 39/39 · perros y tantos en el marcador |
 
 ## Próximos pasos (priorizados)
 1. Probar en celular real: legibilidad de cartas y dificultad de cada leyenda.
-2. Spec 003 — Variar la música por leyenda (el bucle de 16 compases puede cansar) y efectos propios de cada rival.
-3. Spec 003 — Elegir qué suma levantar cuando hay varias; modo «2 de 3 chicas»; estadísticas.
-4. Spec 004 — Arte de cartas y retratos de las leyendas (ilustración).
+2. Spec 004 — Retratos y escenarios en el mismo estilo cartoon (hoy desentonan con las cartas).
+3. Spec 005 — Variar la música por leyenda (el bucle de 16 compases puede cansar) y efectos propios de cada rival.
+4. Spec 006 — Elegir qué suma levantar cuando hay varias; modo «2 de 3 chicas»; estadísticas.
 
 ## Bloqueos / pendientes del usuario
 - Escuchar el pasacalle y decidir si el tempo/instrumentación convence.
@@ -26,3 +27,4 @@
 ## Bitácora de sesiones
 - 2026-10-04 — Proyecto creado (SDD). Spec 001: reglas verificadas y configurables, 4 leyendas con IA y frases, estados, sonido, vista previa de jugadas. Smoke 31/31.
 - 2026-10-04 — Spec 002 (v1.1.0): audio.js y draw.js separados, palos vectoriales rediseñados, reverso azul/rojo, pasacalle procedural, lanzamiento flotante, diablillos. Corregidos 2 solapes de v1.0. Smoke 37/37.
+- 2026-10-04 — Spec 003 (v1.2.0): estilo cartoon propio (sin referencias adjuntas), Rey diablo, Sota Padre Almeida, Caballo Chulla, As con angelito/diablillo, perros y tantos reemplazan las rayas, ParticleSystem, Lerp lineal con targetX/targetY. Smoke 39/39.

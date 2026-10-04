@@ -3,7 +3,7 @@
  * Archivo: js/game.js — Reglas del Cuarenta, IA, máquina de estados, entrada, composición de pantallas y bucle
  * Depende de: config.js → audio.js → draw.js (cargados antes en index.html)
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.1.0
+ * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.2.0
  */
 (function (CU) {
   'use strict';
@@ -176,7 +176,7 @@
       dealerIsP: Math.random() < 0.5, turnP: true, last: null, lastBy: null, lastCapturer: null,
       selected: null, play: null, bubble: null, winner: null, carton: null, dealt: 0, deckNo: 0,
     };
-    Imps.clear();
+    Imps.clear(); flyers.length = 0;
     say('hello');
     newDeck();
   }
@@ -214,7 +214,8 @@
   function moveTo(card, x, y, dur) {
     const dx = x - (card.x || 0), dy = y - (card.y || 0);
     const tilt = Math.hypot(dx, dy) > 40 ? Math.sign(dx || 1) * C.CARD_TILT : 0;
-    card.anim = { fx: card.x, fy: card.y, tx: x, ty: y, t: 0, dur, tilt };
+    card.targetX = x; card.targetY = y;                    // destino; (x, y) es la posición actual
+    card.anim = { fromX: card.x, fromY: card.y, t: 0, dur, tilt };
   }
   const lerp = (a, b, p) => a + (b - a) * p;
   function layoutTable() { G.table.forEach((c, i) => { const p = tablePos(i, G.table.length); moveTo(c, p.x, p.y, 0.2); }); }
@@ -227,6 +228,29 @@
   // ------------------------------------------------------------------ diablillos (solo contra Cantuña)
   const AMBIENT_ZONE = { x: 0, y: 40, w: W, h: 52 };      // franja del atrio, bajo los banderines
   const isDevil = () => G && G.rival.id === 'cantuna';
+
+  // ------------------------------------------------------------------ perros y tantos que vuelan al marcador
+  // Al sumar, aparece una carta de puntos grande (se lee la frase del tanto) y luego se desliza (Lerp)
+  // encogiéndose hasta el marcador. Perro si se cruzó una decena; si no, tanto.
+  const flyers = [];
+  const FLY = { HOLD: 0.55, DUR: 0.35, BIG_W: 58, BIG_H: 82, SMALL_W: 15, SMALL_H: 21, START: { x: W / 2, y: 398 } };
+  function flyPoints(who, before) {
+    if (who.score <= before) return;
+    const kind = Math.floor(who.score / 10) > Math.floor(before / 10) ? 'perro' : 'tanto';
+    const t = who === G.p ? { x: 16 + 46, y: 612 } : { x: W - 16 - 46, y: 122 };
+    flyers.push({ kind, x: FLY.START.x, y: FLY.START.y, tx: t.x, ty: t.y, t: 0 });
+  }
+  function updateFlyers(dt) {
+    for (let i = flyers.length - 1; i >= 0; i--) { const f = flyers[i]; f.t += dt; if (f.t >= FLY.HOLD + FLY.DUR) flyers.splice(i, 1); }
+  }
+  function drawFlyers() {
+    for (const f of flyers) {
+      const pop = Math.min(1, f.t / 0.12), k = clamp((f.t - FLY.HOLD) / FLY.DUR, 0, 1);
+      const x = lerp(FLY.START.x, f.tx, k), y = lerp(FLY.START.y, f.ty, k);
+      const w = lerp(FLY.BIG_W, FLY.SMALL_W, k) * (0.6 + 0.4 * pop), h = lerp(FLY.BIG_H, FLY.SMALL_H, k) * (0.6 + 0.4 * pop);
+      D.drawPointCard(f.kind, x, y, w, h, FLY.BIG_W, FLY.BIG_H);     // un sprite grande, reescalado
+    }
+  }
 
   function popup(text, x, y, color, size = 28) { fx.push({ type: 'text', text, x, y, color, size, life: 1.6, max: 1.6 }); }
   function say(kind) {
@@ -267,13 +291,14 @@
     G.play.taking = [card, ...cap.taken];
     for (const c of G.play.taking) c.hl = true;
     G.play.phase = 'highlight'; G.play.t = 0;
+    const before = who.score;
     who.score += pts.points;
+    flyPoints(who, before);
     const cx = W / 2, cy = (TABLE_TOP + TABLE_BOTTOM) / 2;
     if (pts.caida && pts.limpia) { popup('¡CAÍDA Y LIMPIA!', cx, cy, '#ffe066', 26); Sfx.caida(); setTimeout(() => Sfx.limpia(), 250); }
     else if (pts.caida) { popup(CU.TEXT.caida, cx, cy, '#ffe066', 34); Sfx.caida(); }
     else if (pts.limpia) { popup(CU.TEXT.limpia, cx, cy, '#9be7ff', 34); Sfx.limpia(); }
     else Sfx.capture();
-    if (pts.points) popup('+' + pts.points, isP ? 70 : 290, isP ? 470 : 182, '#ffe066', 22);
     if (pts.limpiaAnulada) popup(CU.TEXT.regla38, cx, cy + 34, '#ffb3a1', 13);
     if (!isP && (pts.caida || pts.limpia)) say(pts.caida ? 'caida' : 'limpia');
     if (!isP && isDevil()) {
@@ -322,7 +347,7 @@
   }
 
   function endGame() {
-    fx.length = 0;                       // sin avisos flotando sobre la pantalla final
+    fx.length = 0; flyers.length = 0;    // sin avisos flotando sobre la pantalla final
     setState(S.JUEGO_TERMINADO);
     const pWon = G.winner === G.p;
     Sfx.stopBGM();                       // la fanfarria de victoria/derrota no compite con la banda
@@ -355,6 +380,7 @@
     for (const f of fx) { f.life -= dt; f.y -= 18 * dt; }
     for (let i = fx.length - 1; i >= 0; i--) if (fx[i].life <= 0) fx.splice(i, 1);
     Imps.update(dt);
+    updateFlyers(dt);
     if (!G) return;
     if (isDevil() && state !== S.JUEGO_TERMINADO) Imps.emit(dt, AMBIENT_ZONE, C.IMPS.AMBIENT_IMPS, C.IMPS.AMBIENT_SPARKS);
     if (G.bubble) { G.bubble.life -= dt; if (G.bubble.life <= 0) G.bubble = null; }
@@ -362,7 +388,7 @@
       if (!c.anim) continue;
       c.anim.t += dt;
       const k = clamp(c.anim.t / c.anim.dur, 0, 1), p = C.CARD_EASE === 'linear' ? k : ease(k);
-      c.x = lerp(c.anim.fx, c.anim.tx, p); c.y = lerp(c.anim.fy, c.anim.ty, p);
+      c.x = lerp(c.anim.fromX, c.targetX, p); c.y = lerp(c.anim.fromY, c.targetY, p);
       c.rot = c.anim.tilt * Math.sin(Math.PI * k);          // sube y baja: se endereza al aterrizar
       if (k >= 1) { c.anim = null; c.rot = 0; if (c.toPile) c.hidden = true; }
     }
@@ -384,7 +410,10 @@
             const r = Rules.checkRonda(who.hand, who.score);
             if (!r) continue;
             if (r.type === 'cuatro') { popup(CU.TEXT.cuatro, W / 2, 330, '#ffe066', 26); G.winner = who; endGame(); return; }
+            const before = who.score;
             who.score += r.points;
+            flyPoints(who, before);
+            if (who === G.a && isDevil() && r.points) Imps.burst(W / 2, 230, 4, 20);
             popup(CU.TEXT.ronda + (r.points ? ' +' + r.points : ''), W / 2, who === G.p ? 440 : 230, '#ffe066', 26);
             Sfx.ronda();
             if (who === G.a) G.bubble = { text: '¡Ronda, ronda!', life: 2 };
@@ -421,7 +450,10 @@
         if (sp !== K.shownP || sa !== K.shownA) { K.shownP = sp; K.shownA = sa; if (total % 2 === 0) Sfx.tick(); }
         if (!K.applied && K.shownP >= K.nP && K.shownA >= K.nA) {
           K.applied = true; K.appliedAt = stateTime;
+          const bp = G.p.score, ba = G.a.score;
           G.p.score += K.res.a; G.a.score += K.res.b;
+          flyPoints(G.p, bp); flyPoints(G.a, ba);
+          if (K.res.b && isDevil()) Imps.burst(W / 2, 320, 6, 30);
           if (K.res.a || K.res.b) Sfx.ronda();
         }
         if (K.applied && stateTime - K.appliedAt > C.CARTON_HOLD) {
@@ -516,15 +548,9 @@
   function drawScore(who, x, y, align, label) {
     txt(label, x, y, 11, 'rgba(255,255,255,0.85)', align, '700');
     txt(String(who.score), x, y + 20, 22, who.score >= 38 ? '#ffb3a1' : '#ffe066', align, '900');
-    // rayas: cada raya = 2 puntos, en grupos de cinco
-    const rayas = Math.floor(who.score / 2);
-    ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 1.4;
-    for (let i = 0; i < rayas; i++) {
-      const grp = Math.floor(i / 5), k = i % 5, dir = align === 'left' ? 1 : -1;
-      const bx = x + dir * (34 + grp * 18), by = y + 22;
-      if (k < 4) { ctx.beginPath(); ctx.moveTo(bx + dir * k * 3.5, by - 7); ctx.lineTo(bx + dir * k * 3.5, by + 7); ctx.stroke(); }
-      else { ctx.beginPath(); ctx.moveTo(bx - dir * 2, by + 6); ctx.lineTo(bx + dir * 13, by - 6); ctx.stroke(); }
-    }
+    // marcador tradicional: un perro (verde) por cada 10 puntos y un tanto (naranja) por cada 2
+    const dir = align === 'left' ? 1 : -1;
+    D.drawScoreMarkers(who.score, x + dir * 46, y + 22, dir);
   }
 
   function drawPile(n, p, label, above = false) {
@@ -581,6 +607,7 @@
       ctx.globalAlpha = 1;
     }
     if (state === S.CONTEO_CARTON) drawCarton();
+    drawFlyers();
     if (state === S.JUEGO_TERMINADO) drawGameOver(t);
   }
 

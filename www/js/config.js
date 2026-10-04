@@ -2,7 +2,7 @@
  * Cuarenta: El Juicio de las Leyendas
  * Archivo: js/config.js — Lore de las leyendas, rivales, baraja y reglas
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.1.0
+ * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.2.0
  */
 /* Solo datos: la lógica vive en game.js. Las reglas con variantes regionales se ajustan en CU.RULES. */
 window.CU = window.CU || {};
@@ -11,11 +11,11 @@ window.CU = window.CU || {};
 
   CU.META = {
     name: 'Cuarenta: El Juicio de las Leyendas',
-    version: '1.1.0',
+    version: '1.2.0',
     author: 'Byron Sebastián Rosero Díaz',
     role: 'Ingeniero de Software',
     year: 2026,
-    copyright: '© 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.1.0',
+    copyright: '© 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.2.0',
   };
 
   // ------------------------------------------------------------------ motor
@@ -27,7 +27,7 @@ window.CU = window.CU || {};
     HAND_W: 60, HAND_H: 86,    // carta en la mano del jugador
     ANIM_PLAY: 0.2,            // s: «lanzamiento flotante» de la mano a la mesa
     ANIM_DEAL: 0.2,            // s: vuelo de cada carta desde el mazo al repartir
-    CARD_EASE: 'out',          // 'out' = Lerp con frenado (desliza sobre el paño) · 'linear' = Lerp puro
+    CARD_EASE: 'linear',       // 'linear' = Lerp puro (pedido) · 'out' = Lerp con frenado al aterrizar
     CARD_TILT: 0.12,           // rad: inclinación máxima de la carta en vuelo (0 = sin inclinación)
     ANIM_CAPTURE: 0.45,        // s: cartas levantadas hacia el cartón
     AI_THINK: [0.7, 1.3],      // s: pausa "humana" de la IA

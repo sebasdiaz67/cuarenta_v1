@@ -50,12 +50,14 @@ const rules = await page.evaluate(() => {
   out.ronda38 = R.checkRonda([card('3'), card('3', 'espada'), card('3', 'basilica'), card('K'), card('A')], 38);
   out.cuatro = R.checkRonda([card('3'), card('3', 'espada'), card('3', 'basilica'), card('3', 'campana'), card('A')], 0);
   out.carton = [19, 20, 21, 22, 23, 24, 30].map((n) => R.cartonPoints(n));
+  out.markers = [0, 2, 8, 10, 24, 38, 40].map((n) => { const m = CU.Draw.markers(n); return m.perros + '/' + m.tantos; }).join(' ');
   out.cartonReparto = R.carton(24, 16, 10, 10, true);
   out.empate = R.carton(20, 20, 10, 10, false);
   out.carton38 = R.carton(24, 16, 38, 10, true);
   return out;
 });
 check('Baraja de 40: As–7, Sota, Caballo, Rey', rules.deck.n === 40 && rules.deck.ranks === 'A234567JQK', JSON.stringify(rules.deck));
+check('Marcador: perros (10) y tantos (2)', rules.markers === '0/0 0/1 0/4 1/0 2/2 3/4 4/0', rules.markers);
 check('Levanta carta igual', rules.igual === '5');
 check('Escalera ascendente desde la carta igual', rules.escalera === '4,5,6', rules.escalera);
 check('La escalera se corta si falta una carta', rules.escaleraCorta === '6', rules.escaleraCorta);
@@ -108,7 +110,9 @@ const v2 = await page.evaluate(async () => {
   if (d.state === 'TURNO_JUGADOR') {
     const c = d.game.p.hand[0]; const x0 = c.x, y0 = c.y;
     d.playCard(d.game.p, c); await sleep(90);
-    out.flight = { dur: c.anim ? c.anim.dur : null, moved: Math.hypot(c.x - x0, c.y - y0) > 5, rot: c.rot };
+    const a = c.anim, k = a ? a.t / a.dur : 0;
+    out.flight = { dur: a ? a.dur : null, moved: Math.hypot(c.x - x0, c.y - y0) > 5, rot: c.rot,
+      linear: !!a && Math.abs(c.x - (a.fromX + (c.targetX - a.fromX) * k)) < 0.5 && Math.abs(c.y - (a.fromY + (c.targetY - a.fromY) * k)) < 0.5 };
   }
   await sleep(1500);
   out.imps = CU.Draw.Imps.count();
@@ -120,9 +124,10 @@ const v2 = await page.evaluate(async () => {
 });
 check('BGM: playBGM()/stopBGM() públicos y arranca al tocar el menú', v2.api && v2.bgmOn && v2.bgmOff, JSON.stringify(v2));
 check('Lanzamiento flotante: 0.2 s, interpola y se inclina en vuelo', v2.flight && v2.flight.dur === 0.2 && v2.flight.moved && Math.abs(v2.flight.rot) > 0.01, JSON.stringify(v2.flight));
+check('Lerp lineal hacia (targetX, targetY)', v2.flight && v2.flight.linear, JSON.stringify(v2.flight));
 check('Diablillos ambientales en el atrio de Cantuña', v2.imps > 0, String(v2.imps));
 check('Pool de partículas acotado (≤ 80)', v2.poolCap <= 80 && v2.poolCap > 60, String(v2.poolCap));
-check('Caché de sprites acotada', v2.cache > 0 && v2.cache < 60, String(v2.cache));
+check('Caché de sprites acotada', v2.cache > 0 && v2.cache < 120, String(v2.cache));
 await shot('05_diablillos');
 
 // El resto de la partida en automático: el jugador usa la misma IA (estilo del Gallo)
