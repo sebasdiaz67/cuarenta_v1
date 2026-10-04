@@ -100,6 +100,31 @@ if ((await page.evaluate(() => CU._debug.state)) === 'TURNO_JUGADOR') {
   check('Segundo toque juega (VALIDAR_JUGADA)', after.s === 'VALIDAR_JUGADA' && after.n === 4, JSON.stringify(after));
 }
 
+// ---------- spec 002: música, lanzamiento flotante y diablillos ----------
+const v2 = await page.evaluate(async () => {
+  const d = CU._debug, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const out = { api: typeof CU.Audio.playBGM === 'function' && typeof CU.Audio.stopBGM === 'function', bgmOn: CU.Audio.isPlayingBGM() };
+  while (d.state !== 'TURNO_JUGADOR' && d.state !== 'JUEGO_TERMINADO') await sleep(20);
+  if (d.state === 'TURNO_JUGADOR') {
+    const c = d.game.p.hand[0]; const x0 = c.x, y0 = c.y;
+    d.playCard(d.game.p, c); await sleep(90);
+    out.flight = { dur: c.anim ? c.anim.dur : null, moved: Math.hypot(c.x - x0, c.y - y0) > 5, rot: c.rot };
+  }
+  await sleep(1500);
+  out.imps = CU.Draw.Imps.count();
+  CU.Draw.Imps.burst(180, 300, 200, 200);                 // fuerza el tope del pool
+  out.poolCap = CU.Draw.Imps.count();
+  out.cache = CU.Draw.cacheSize();
+  CU.Audio.stopBGM(); out.bgmOff = !CU.Audio.isPlayingBGM(); CU.Audio.playBGM();
+  return out;
+});
+check('BGM: playBGM()/stopBGM() públicos y arranca al tocar el menú', v2.api && v2.bgmOn && v2.bgmOff, JSON.stringify(v2));
+check('Lanzamiento flotante: 0.2 s, interpola y se inclina en vuelo', v2.flight && v2.flight.dur === 0.2 && v2.flight.moved && Math.abs(v2.flight.rot) > 0.01, JSON.stringify(v2.flight));
+check('Diablillos ambientales en el atrio de Cantuña', v2.imps > 0, String(v2.imps));
+check('Pool de partículas acotado (≤ 80)', v2.poolCap <= 80 && v2.poolCap > 60, String(v2.poolCap));
+check('Caché de sprites acotada', v2.cache > 0 && v2.cache < 60, String(v2.cache));
+await shot('05_diablillos');
+
 // El resto de la partida en automático: el jugador usa la misma IA (estilo del Gallo)
 await page.evaluate(() => Object.assign(CU.CFG, { ANIM_PLAY: 0.04, ANIM_CAPTURE: 0.04, AI_THINK: [0.02, 0.03], DEAL_GAP: 0.004, HIGHLIGHT: 0.04, COUNT_STEP: 0.002, CARTON_HOLD: 0.1 }));
 const sim = await page.evaluate(async () => {
@@ -126,10 +151,23 @@ check('Siempre 40 cartas en juego (sin perder ni duplicar)', sim.maxCards === 40
 check('Se recorrieron los estados', ['REPARTIR_CARTAS', 'TURNO_JUGADOR', 'TURNO_IA', 'VALIDAR_JUGADA'].every((s) => sim.states.includes(s)), sim.states.join(','));
 check('Hubo conteo de cartón (más de un mazo o fin por cartón)', sim.states.includes('CONTEO_CARTON') || sim.decks >= 1, String(sim.decks));
 await wait(1000); await shot('04_final');
+// ---------- rendimiento: costo de render con CPU 4× más lenta (gama baja) y pool lleno ----------
+const cdp = await page.context().newCDPSession(page);
+await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+const perf = await page.evaluate(async () => {
+  const d = CU._debug; d.newGame(3); await new Promise((r) => setTimeout(r, 1500));
+  CU.Draw.Imps.burst(180, 300, 40, 60);
+  const ts = []; for (let i = 0; i < 120; i++) { const t = performance.now(); d.render(); ts.push(performance.now() - t); }
+  ts.sort((a, b) => a - b);
+  return { avg: ts.reduce((a, b) => a + b, 0) / ts.length, p95: ts[Math.floor(ts.length * 0.95)], particles: CU.Draw.Imps.count() };
+});
+await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+check('Render < 16.7 ms con CPU ×4 y partículas al tope', perf.p95 < 16.7, JSON.stringify(perf));
 check('Sin errores de consola', errors.length === 0, errors.join(' | '));
 await browser.close();
 for (const r of results) console.log(`${r.ok ? '✔' : '✘'} ${r.name}${r.ok ? '' : '  → ' + r.detail}`);
 const failed = results.filter((r) => !r.ok).length;
 console.log(`\n${results.length - failed}/${results.length} OK`);
+console.log('Render CPU×4:', JSON.stringify(perf));
 console.log('Partida simulada:', JSON.stringify({ marcador: `${sim.p}-${sim.a}`, mazos: sim.decks, ganador: sim.winner }));
 process.exit(failed ? 1 : 0);
