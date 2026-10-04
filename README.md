@@ -11,9 +11,9 @@ El juego de cartas de Quito contra sus leyendas, ambientado en las Fiestas de Qu
 | Cantuña y el Diablo | Atrio de San Francisco | Cuenta las cartas que ya salieron | ★★★★ |
 
 ## Reglas implementadas
-- Baraja de 40: As–7, Sota, Caballo, Rey (equivalen a J, Q, K de la baraja inglesa con que se juega en Quito). Cuatro brillos: Soles de Oro, Corazones de la Basílica, Espadas de la Independencia, Campanas de San Francisco. El palo no influye.
+- Baraja de 40: As, 2–7, J (10), Q (11) y K (12) por brillo; sin 8 ni 9. Las cartas muestran J, Q, K. Cuatro brillos: Soles de Oro, Corazones de la Basílica, Espadas de la Independencia, Campanas de San Francisco. El palo no influye.
 - Se reparten 5 cartas a cada uno, cuatro veces por mazo; empieza el que no da.
-- **Levantar**: carta igual; **suma** de cartas As–7 (las figuras no suman); y luego **escalera** ascendente (… 6, 7, Sota, Caballo, Rey).
+- **Levantar**: carta igual; **suma** de cartas As–7 (las figuras no suman); y luego **escalera** ascendente (… 6, 7, J, Q, K). Las figuras nunca suman: solo se capturan por igualdad o por escalera.
 - **Caída** +2 (levantar con igual la carta que el rival acaba de jugar) · **Limpia** +2 (dejar la mesa vacía) · **Ronda** +2 (tres iguales al recibir) · **Cuatro iguales** gana la chica.
 - **Cartón** al terminar el mazo: quien tenga más cartas, con 20 o más, suma 6 + 1 por carta extra (redondeado a par). Empate 20–20: dos por dar.
 - **Regla de 38**: con 38 solo vale la caída (no limpia, ronda ni cartón).

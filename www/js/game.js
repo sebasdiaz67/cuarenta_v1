@@ -3,7 +3,7 @@
  * Archivo: js/game.js — Reglas del Cuarenta, IA, máquina de estados, entrada, composición de pantallas y bucle
  * Depende de: config.js → audio.js → draw.js (cargados antes en index.html)
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.3.0
+ * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.3.1
  */
 (function (CU) {
   'use strict';
@@ -26,9 +26,18 @@
       for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
       return arr;
     },
-    // Subconjunto de cartas numéricas que suma exactamente `target`; prefiere el que más cartas levanta.
+    // Una carta participa en sumas solo si es As–7. Las figuras (J, Q, K) NUNCA suman (Punto 3).
+    isSumable(c) { return Number.isInteger(c.rank.value) && c.rank.value >= 1 && c.rank.value <= 7; },
+    // ¿`cards` es una captura por suma válida para `card`? (≥ 2 cartas, todas As–7, suma exacta)
+    validateSuma(card, cards) {
+      if (!Rules.isSumable(card) || cards.length < 2 || !cards.every(Rules.isSumable)) return false;
+      return cards.reduce((a, c) => a + c.rank.value, 0) === card.rank.value;
+    },
+    // Subconjunto sumable que da exactamente `target`; prefiere el que más cartas levanta.
+    // Filtra las figuras AQUÍ (no solo en quien llama): en JS `null + 3 === 3`, una figura contaría como 0.
     bestSum(cards, target) {
       let best = null;
+      cards = cards.filter(Rules.isSumable);
       const n = cards.length;
       for (let mask = 1; mask < (1 << n); mask++) {
         let sum = 0, cnt = 0;
@@ -46,10 +55,9 @@
       const same = table.filter((c) => c.rank.order === card.rank.order);
       if (same.length) {
         taken.push(last && same.includes(last) ? last : same[0]); kind = 'igual';
-      } else if (card.rank.value && (!R.SUMA_SOLO_NUMEROS || card.rank.value)) {
-        const nums = table.filter((c) => c.rank.value);
-        const sub = Rules.bestSum(nums, card.rank.value);
-        if (sub) { taken = sub; kind = 'suma'; }
+      } else if (Rules.isSumable(card)) {                     // una figura nunca captura por suma
+        const sub = Rules.bestSum(table, card.rank.value);
+        if (sub && Rules.validateSuma(card, sub)) { taken = sub; kind = 'suma'; }
       }
       if (kind === 'igual' || (kind === 'suma' && R.ESCALERA_TRAS_SUMA)) {
         for (let next = card.rank.order + 1; ; next++) {

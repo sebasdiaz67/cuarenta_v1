@@ -52,6 +52,21 @@ const rules = await page.evaluate(() => {
   out.ronda38 = R.checkRonda([card('3'), card('3', 'espada'), card('3', 'basilica'), card('K'), card('A')], 38);
   out.cuatro = R.checkRonda([card('3'), card('3', 'espada'), card('3', 'basilica'), card('3', 'campana'), card('A')], 0);
   out.carton = [19, 20, 21, 22, 23, 24, 30].map((n) => R.cartonPoints(n));
+  // --- auditoría de nomenclatura y suma (spec 001, Puntos 2-4)
+  out.porPalo = CU.SUITS.map((su) => deck.filter((c) => c.suit.id === su.id).map((c) => c.rank.id).join('')).join('|');
+  out.labels = CU.RANKS.map((r) => r.label).join('');
+  out.nominal = CU.RANKS.filter((r) => r.figure).map((r) => r.id + r.nominal).join(',');
+  out.sin89 = !deck.some((c) => ['8', '9'].includes(c.rank.id) || c.rank.nominal === 8 || c.rank.nominal === 9);
+  out.ordenEscalera = [...CU.RANKS].sort((a, b) => a.order - b.order).map((r) => r.id).join(',');
+  out.kSoloK = [ids(R.findCapture(card('K'), [card('K', 'espada'), card('5')])), R.findCapture(card('K'), [card('5'), card('7')])];
+  out.bestSumConFigura = R.bestSum([card('3'), card('4'), card('J')], 7).map((c) => c.rank.id).sort().join(',');
+  out.validaSumaConJ = R.validateSuma(card('7'), [card('3'), card('4'), card('J')]);
+  out.validaSuma34 = R.validateSuma(card('7'), [card('3'), card('4')]);
+  out.figuraNoSumaFiguras = [R.validateSuma(card('K'), [card('J'), card('Q')]), R.findCapture(card('K'), [card('J'), card('Q', 'espada')])];
+  const esc = CU.RULES.ESCALERA_TRAS_SUMA; CU.RULES.ESCALERA_TRAS_SUMA = false;
+  out.sumaPuraSinJ = ids(R.findCapture(card('7'), [card('3'), card('4'), card('J')]));
+  CU.RULES.ESCALERA_TRAS_SUMA = esc;
+  out.sumaLuegoEscalera = ids(R.findCapture(card('7'), [card('3'), card('4'), card('J')]));
   out.markers = [0, 2, 8, 10, 24, 38, 40].map((n) => { const m = CU.Draw.markers(n); return m.perros + '/' + m.tantos; }).join(' ');
   out.cartonReparto = R.carton(24, 16, 10, 10, true);
   out.empate = R.carton(20, 20, 10, 10, false);
@@ -60,6 +75,16 @@ const rules = await page.evaluate(() => {
 });
 check('Baraja de 40: As–7, Sota, Caballo, Rey', rules.deck.n === 40 && rules.deck.ranks === 'A234567JQK', JSON.stringify(rules.deck));
 check('Marcador: perros (10) y tantos (2)', rules.markers === '0/0 0/1 0/4 1/0 2/2 3/4 4/0', rules.markers);
+check('Mazo: 10 cartas por brillo, exactamente A–7, J, Q, K', rules.porPalo === 'A234567JQK|A234567JQK|A234567JQK|A234567JQK', rules.porPalo);
+check('Figuras impresas como J, Q, K (no S, C, R)', rules.labels === 'A234567JQK', rules.labels);
+check('Numeración nominal J=10, Q=11, K=12; sin 8 ni 9', rules.nominal === 'J10,Q11,K12' && rules.sin89, rules.nominal);
+check('Escalera en orden 1…7, J, Q, K', rules.ordenEscalera === 'A,2,3,4,5,6,7,J,Q,K', rules.ordenEscalera);
+check('K solo captura K por emparejamiento', rules.kSoloK[0] === 'K' && rules.kSoloK[1] === null, JSON.stringify(rules.kSoloK));
+check('bestSum() ignora figuras aunque se las pasen', rules.bestSumConFigura === '3,4', rules.bestSumConFigura);
+check('validateSuma(): 7 = 3+4 sí; 3+4+J no', rules.validaSuma34 === true && rules.validaSumaConJ === false);
+check('Las figuras no suman entre sí (K ≠ J+Q)', rules.figuraNoSumaFiguras[0] === false && rules.figuraNoSumaFiguras[1] === null);
+check('Suma pura: 7 sobre 3, 4, J levanta solo 3+4', rules.sumaPuraSinJ === '3,4', rules.sumaPuraSinJ);
+check('Con ESCALERA_TRAS_SUMA la J entra por escalera, no por suma', rules.sumaLuegoEscalera === '3,4,J', rules.sumaLuegoEscalera);
 check('Levanta carta igual', rules.igual === '5');
 check('Escalera ascendente desde la carta igual', rules.escalera === '4,5,6', rules.escalera);
 check('La escalera se corta si falta una carta', rules.escaleraCorta === '6', rules.escaleraCorta);

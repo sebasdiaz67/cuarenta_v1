@@ -2,7 +2,7 @@
  * Cuarenta: El Juicio de las Leyendas
  * Archivo: js/config.js — Lore de las leyendas, rivales, baraja y reglas
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.3.0
+ * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.3.1
  */
 /* Solo datos: la lógica vive en game.js. Las reglas con variantes regionales se ajustan en CU.RULES. */
 window.CU = window.CU || {};
@@ -11,11 +11,11 @@ window.CU = window.CU || {};
 
   CU.META = {
     name: 'Cuarenta: El Juicio de las Leyendas',
-    version: '1.3.0',
+    version: '1.3.1',
     author: 'Byron Sebastián Rosero Díaz',
     role: 'Ingeniero de Software',
     year: 2026,
-    copyright: '© 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.3.0',
+    copyright: '© 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.3.1',
   };
 
   // ------------------------------------------------------------------ motor
@@ -51,7 +51,6 @@ window.CU = window.CU || {};
     LIMPIA: 2,                 // dejar la mesa vacía
     RONDA: 2,                  // recibir tres cartas iguales
     CUATRO_IGUALES_GANA: true, // recibir las cuatro iguales gana la chica
-    SUMA_SOLO_NUMEROS: true,   // solo As–7 suman; las figuras nunca
     ESCALERA_TRAS_SUMA: true,  // después de sumar se sigue la escalera desde la carta jugada
     CARTON_MIN: 20,            // con 20 cartas: 6 puntos
     CARTON_BASE: 6,
@@ -63,19 +62,22 @@ window.CU = window.CU || {};
   };
 
   // ------------------------------------------------------------------ baraja
-  // 40 cartas: As–7 y tres figuras por palo. Los palos no influyen en las reglas (solo el número).
-  // order: posición en la escalera (As=1 … 7, Sota=8, Caballo=9, Rey=10). value: valor para sumar (figuras: null).
+  // 40 cartas = 4 brillos × 10 valores: As, 2–7, J, Q, K. No existen 8 ni 9.
+  //  id      → identificador estándar internacional (y lo que se imprime en la carta: `label`).
+  //  nominal → número de la carta en la baraja (J = 10, Q = 11, K = 12). Solo informativo: NO se usa para sumar.
+  //  order   → posición en la escalera: 1…7, J(8), Q(9), K(10). Igualdad y escalera comparan `order`.
+  //  value   → valor para la SUMA. Solo As–7; las figuras tienen null y la lógica de suma las excluye.
   CU.RANKS = [
-    { id: 'A', label: 'A', name: 'As',      order: 1,  value: 1 },
-    { id: '2', label: '2', name: 'Dos',     order: 2,  value: 2 },
-    { id: '3', label: '3', name: 'Tres',    order: 3,  value: 3 },
-    { id: '4', label: '4', name: 'Cuatro',  order: 4,  value: 4 },
-    { id: '5', label: '5', name: 'Cinco',   order: 5,  value: 5 },
-    { id: '6', label: '6', name: 'Seis',    order: 6,  value: 6 },
-    { id: '7', label: '7', name: 'Siete',   order: 7,  value: 7 },
-    { id: 'J', label: 'S', name: 'Sota',    order: 8,  value: null, figure: 'sota' },
-    { id: 'Q', label: 'C', name: 'Caballo', order: 9,  value: null, figure: 'caballo' },
-    { id: 'K', label: 'R', name: 'Rey',     order: 10, value: null, figure: 'rey' },
+    { id: 'A', label: 'A', name: 'As',      nominal: 1,  order: 1,  value: 1 },
+    { id: '2', label: '2', name: 'Dos',     nominal: 2,  order: 2,  value: 2 },
+    { id: '3', label: '3', name: 'Tres',    nominal: 3,  order: 3,  value: 3 },
+    { id: '4', label: '4', name: 'Cuatro',  nominal: 4,  order: 4,  value: 4 },
+    { id: '5', label: '5', name: 'Cinco',   nominal: 5,  order: 5,  value: 5 },
+    { id: '6', label: '6', name: 'Seis',    nominal: 6,  order: 6,  value: 6 },
+    { id: '7', label: '7', name: 'Siete',   nominal: 7,  order: 7,  value: 7 },
+    { id: 'J', label: 'J', name: 'Jota',    nominal: 10, order: 8,  value: null, figure: 'sota' },     // arte: Padre Almeida
+    { id: 'Q', label: 'Q', name: 'Caballo', nominal: 11, order: 9,  value: null, figure: 'caballo' },  // arte: el Chulla
+    { id: 'K', label: 'K', name: 'Rey',     nominal: 12, order: 10, value: null, figure: 'rey' },      // arte: el Diablo
   ];
   // Cuatro «brillos» quiteños (equivalen a ♦ ♥ ♠ ♣ de la baraja inglesa con que se juega en Quito).
   CU.SUITS = [

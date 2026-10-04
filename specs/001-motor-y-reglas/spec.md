@@ -11,7 +11,7 @@ Juego de cartas Cuarenta (tradición ecuatoriana) contra cuatro leyendas de Quit
 ### R2 — Estados
 `MENU → REPARTIR_CARTAS → TURNO_JUGADOR ⇄ TURNO_IA → VALIDAR_JUGADA → … → CONTEO_CARTON → … → JUEGO_TERMINADO`.
 ### R3 — Reglas (verificadas con Tabletopia «Reglas del 40» y play40.app)
-- Baraja de 40 (As–7, Sota, Caballo, Rey); 5 cartas por jugador, 4 repartos por mazo; empieza el que no da.
+- Baraja de 40 (As, 2–7, J, Q, K; nominales J=10, Q=11, K=12; sin 8 ni 9); 5 cartas por jugador, 4 repartos por mazo; empieza el que no da.
 - Levantar por igual; por suma (solo As–7); escalera ascendente después de igual o suma.
 - Caída +2, limpia +2, ronda +2, cuatro iguales gana; cartón 20+ = 6 +1 por carta extra (par); empate = dos por dar; regla de 38 (solo caída). Gana quien llega a 40.
 - Variantes configurables en `CU.RULES`.
@@ -26,4 +26,6 @@ Juego de cartas Cuarenta (tradición ecuatoriana) contra cuatro leyendas de Quit
 ## Supuestos
 > ⚠️ Con varias sumas posibles se levanta automáticamente la que más cartas toma.
 > ⚠️ «Campanas de San Francisco» como cuarto palo: propuesta (el usuario nombró tres).
-> ⚠️ Sota/Caballo/Rey ocupan los valores 8/9/10 de J/Q/K de la baraja inglesa usada en Quito.
+> ✔ v1.3.1: figuras con id y etiqueta J, Q, K (antes la etiqueta mostraba S, C, R). Orden de escalera 1…7, J, Q, K.
+> ✔ v1.3.1: la suma excluye figuras dentro de `bestSum()` y `validateSuma()` (antes dependía del filtro de quien llamaba). Eliminado el flag `SUMA_SOLO_NUMEROS`, que no tenía efecto.
+> ⚠️ Con `ESCALERA_TRAS_SUMA: true`, un 7 que suma 3+4 sigue la escalera y levanta también la J (por escalera, no por suma). Pendiente de confirmar con el reglamento del usuario.

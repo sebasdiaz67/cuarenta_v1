@@ -1,7 +1,7 @@
 # STATUS — cuarenta
 
 **Última actualización:** 2026-10-04
-**Estado general:** v1.3.0 — Arte cartoon, perros y tantos, diablillos y motor de audio por muestras (sin muestras reales aún: suena el respaldo sintetizado). Sin empaquetado.
+**Estado general:** v1.3.1 — Arte cartoon, perros y tantos, diablillos y motor de audio por muestras (sin muestras reales aún: suena el respaldo sintetizado). Sin empaquetado.
 
 ## Features
 | Spec | Estado | Notas |
@@ -18,6 +18,7 @@
 4. Spec 007 — Elegir qué suma levantar cuando hay varias; modo «2 de 3 chicas»; estadísticas.
 
 ## Bloqueos / pendientes del usuario
+- Confirmar si tras una suma se continúa la escalera hacia las figuras (7 → J → Q → K) o no (`ESCALERA_TRAS_SUMA`).
 - Conseguir las 6 muestras (grabación propia o CC0) según `www/audio/LEEME.md`.
 - Escuchar el pasacalle y decidir si el tempo/instrumentación convence.
 - Confirmar el cuarto palo (Campanas de San Francisco) y las variantes de reglas de su casa.
@@ -31,3 +32,4 @@
 - 2026-10-04 — Spec 002 (v1.1.0): audio.js y draw.js separados, palos vectoriales rediseñados, reverso azul/rojo, pasacalle procedural, lanzamiento flotante, diablillos. Corregidos 2 solapes de v1.0. Smoke 37/37.
 - 2026-10-04 — Spec 003 (v1.2.0): estilo cartoon propio (sin referencias adjuntas), Rey diablo, Sota Padre Almeida, Caballo Chulla, As con angelito/diablillo, perros y tantos reemplazan las rayas, ParticleSystem, Lerp lineal con targetX/targetY. Smoke 39/39.
 - 2026-10-04 — Spec 004 (v1.3.0): audio.js por muestras (preloadAudio, secuenciador 130 BPM, playCaida/playCaidaYLimpia/playPerro, window.CU_AUDIO) con respaldo sintetizado. Corregida precarga concurrente duplicada. audio 12/12, smoke 40/40.
+- 2026-10-04 — v1.3.1 (QA): etiquetas J/Q/K, campo `nominal` (J=10, Q=11, K=12), `validateSuma()`; `bestSum()` excluye figuras por sí mismo (antes una figura contaba 0); quitado flag muerto `SUMA_SOLO_NUMEROS`. Smoke 50/50, audio 12/12.
