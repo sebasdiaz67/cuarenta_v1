@@ -1,9 +1,9 @@
 /*!
  * Cuarenta: El Juicio de las Leyendas
  * Archivo: js/game.js — Reglas del Cuarenta, IA, máquina de estados, entrada, composición de pantallas y bucle
- * Depende de: config.js → audio.js → draw.js (cargados antes en index.html)
+ * Depende de: config.js → rules.js → audio.js → draw.js → net.js (cargados antes en index.html)
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.5.0
+ * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.6.0
  */
 (function (CU) {
   'use strict';
@@ -14,111 +14,9 @@
   const ease = (p) => 1 - Math.pow(1 - clamp(p, 0, 1), 3);
 
   // =====================================================================
-  //  1. REGLAS (funciones puras: sin pantalla ni sonido)
+  //  1. REGLAS → js/rules.js (compartidas con el servidor online)
   // =====================================================================
-  const Rules = {
-    makeDeck() {
-      const deck = [];
-      for (const s of CU.SUITS) for (const r of CU.RANKS) deck.push({ id: s.id + '-' + r.id, rank: r, suit: s });
-      return deck;
-    },
-    shuffle(arr) {
-      for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
-      return arr;
-    },
-    // Una carta participa en sumas solo si es As–7. Las figuras (J, Q, K) NUNCA suman (Punto 3).
-    isSumable(c) { return Number.isInteger(c.rank.value) && c.rank.value >= 1 && c.rank.value <= 7; },
-    // ¿`cards` es una captura por suma válida para `card`? (≥ 2 cartas, todas As–7, suma exacta)
-    validateSuma(card, cards) {
-      if (!Rules.isSumable(card) || cards.length < 2 || !cards.every(Rules.isSumable)) return false;
-      return cards.reduce((a, c) => a + c.rank.value, 0) === card.rank.value;
-    },
-    // Subconjunto sumable que da exactamente `target`; prefiere el que más cartas levanta.
-    // Filtra las figuras AQUÍ (no solo en quien llama): en JS `null + 3 === 3`, una figura contaría como 0.
-    bestSum(cards, target) {
-      let best = null;
-      cards = cards.filter(Rules.isSumable);
-      const n = cards.length;
-      for (let mask = 1; mask < (1 << n); mask++) {
-        let sum = 0, cnt = 0;
-        for (let i = 0; i < n; i++) if (mask & (1 << i)) { sum += cards[i].rank.value; cnt++; }
-        if (sum === target && cnt >= 2 && (!best || cnt > best.length)) {
-          best = []; for (let i = 0; i < n; i++) if (mask & (1 << i)) best.push(cards[i]);
-        }
-      }
-      return best;
-    },
-    // CAÍDA (Punto 6): la carta jugada se empareja POR IGUAL con la carta exacta que el rival lanzó en el turno
-    // inmediatamente anterior. No es caída si esa carta solo cae por escalera o por suma.
-    // Bug corregido (v1.4.1): antes bastaba con que `lastPlayedCard` estuviera entre lo levantado, y la escalera
-    // (p. ej. A propio → 2 del rival) daba una caída falsa.
-    checkCaida(card, matched, lastPlayedCard) {
-      return !!lastPlayedCard && !!matched && matched === lastPlayedCard && card.rank.order === lastPlayedCard.rank.order;
-    },
-    // Qué levanta `card` sobre `table`. lastPlayedCard = carta que el rival acaba de lanzar (o null).
-    // Orden: 1) carta igual (prefiere la recién lanzada) 2) suma (As–7) 3) escalera ascendente desde la carta jugada.
-    findCapture(card, table, lastPlayedCard) {
-      let taken = [], kind = null, matched = null;
-      const same = table.filter((c) => c.rank.order === card.rank.order);
-      if (same.length) {
-        matched = lastPlayedCard && same.includes(lastPlayedCard) ? lastPlayedCard : same[0];
-        taken.push(matched); kind = 'igual';
-      } else if (Rules.isSumable(card)) {                     // una figura nunca captura por suma
-        const sub = Rules.bestSum(table, card.rank.value);
-        if (sub && Rules.validateSuma(card, sub)) { taken = sub; kind = 'suma'; }
-      }
-      if (kind === 'igual' || (kind === 'suma' && R.ESCALERA_TRAS_SUMA)) {
-        for (let next = card.rank.order + 1; ; next++) {
-          const c = table.find((t) => t.rank.order === next && !taken.includes(t));
-          if (!c) break;
-          taken.push(c);
-        }
-      }
-      if (!kind) return null;
-      return {
-        kind, taken,
-        caida: kind === 'igual' && Rules.checkCaida(card, matched, lastPlayedCard),
-        limpia: taken.length === table.length,
-      };
-    },
-    // Puntos de una jugada aplicando la regla de 38.
-    playPoints(cap, score) {
-      if (!cap) return { points: 0, caida: false, limpia: false };
-      const blocked38 = R.REGLA_38 && score === 38;
-      const caida = cap.caida, limpia = cap.limpia && !blocked38;
-      return { points: (caida ? R.CAIDA : 0) + (limpia ? R.LIMPIA : 0), caida, limpia, limpiaAnulada: cap.limpia && blocked38 };
-    },
-    // Ronda al recibir la mano: tres iguales (+2) o cuatro iguales (gana la chica).
-    checkRonda(hand, score) {
-      const count = {};
-      for (const c of hand) count[c.rank.order] = (count[c.rank.order] || 0) + 1;
-      const max = Math.max(...Object.values(count));
-      if (max >= 4 && R.CUATRO_IGUALES_GANA) return { type: 'cuatro', points: 0 };
-      if (max === 3) {
-        const blocked = R.REGLA_38 && score === 38;
-        return { type: 'ronda', points: blocked ? 0 : R.RONDA, blocked };
-      }
-      return null;
-    },
-    // Cartón: con más cartas que el rival y al menos 20 → 6 + 1 por carta extra (redondeado a par).
-    cartonPoints(n) {
-      if (n < R.CARTON_MIN) return 0;
-      let p = R.CARTON_BASE + (n - R.CARTON_MIN);
-      if (R.CARTON_REDONDEO_PAR && p % 2) p++;
-      return p;
-    },
-    carton(nA, nB, scoreA, scoreB, dealerIsA) {
-      const blocked = (s) => (R.REGLA_38 && s === 38) || (R.CARTON_BLOQUEO_30 && s >= 30);
-      if (nA === nB) {
-        const s = dealerIsA ? scoreA : scoreB;
-        return { a: dealerIsA && !blocked(s) ? R.DOS_POR_DAR : 0, b: !dealerIsA && !blocked(s) ? R.DOS_POR_DAR : 0, tie: true };
-      }
-      const aWins = nA > nB;
-      const pts = Rules.cartonPoints(aWins ? nA : nB);
-      return { a: aWins && !blocked(scoreA) ? pts : 0, b: !aWins && !blocked(scoreB) ? pts : 0, tie: false };
-    },
-  };
-  CU.Rules = Rules;
+  const Rules = CU.Rules;
 
   // =====================================================================
   //  2. SONIDO Y MÚSICA → js/audio.js (CU.Audio). Alias local para no tocar las llamadas.
@@ -173,7 +71,10 @@
   //  4. ESTADO DEL JUEGO
   // =====================================================================
   const S = {
-    MENU: 'MENU', REPARTIR_CARTAS: 'REPARTIR_CARTAS', TURNO_JUGADOR: 'TURNO_JUGADOR', TURNO_IA: 'TURNO_IA',
+    MENU: 'MENU', MENU_IA: 'MENU_IA', LOBBY: 'LOBBY',
+    REPARTIR_CARTAS: 'REPARTIR_CARTAS', TURNO_JUGADOR: 'TURNO_JUGADOR', TURNO_IA: 'TURNO_IA',
+    TURNO_RIVAL_RED: 'TURNO_RIVAL_RED',   // online: congelado esperando la jugada del amigo (evento del servidor)
+    ESPERA_RED: 'ESPERA_RED',             // online: entre eventos del servidor
     VALIDAR_JUGADA: 'VALIDAR_JUGADA', CONTEO_CARTON: 'CONTEO_CARTON', JUEGO_TERMINADO: 'JUEGO_TERMINADO',
   };
   let state = S.MENU, stateTime = 0, simTime = 0, frames = 0;
@@ -195,6 +96,107 @@
     Imps.clear(); flyers.length = 0;
     say('hello');
     newDeck();
+  }
+
+  // =====================================================================
+  //  4b. MODO ONLINE — el servidor es el árbitro; aquí solo se animan sus eventos
+  // =====================================================================
+  const TEMPLATE = new Map(Rules.makeDeck().map((c) => [c.id, c]));
+  const mkCard = (id) => { const t = TEMPLATE.get(id); return { id, rank: t.rank, suit: t.suit }; };
+  const mkHidden = () => ({ id: '?', rank: null, suit: null, faceUp: false });   // carta del rival: solo el reverso
+  const netQueue = [];
+
+  function newOnlineGame() {
+    G = {
+      rival: CU.ONLINE_RIVAL, online: true, deck: [], table: [], seen: [],
+      p: { name: 'Tú', hand: [], pile: [], score: 0 },
+      a: { name: CU.ONLINE_RIVAL.name, hand: [], pile: [], score: 0 },
+      dealerIsP: false, turnP: false, lastPlayedCard: null, lastPlayedBy: null, lastCapturer: null,
+      selected: null, play: null, bubble: null, winner: null, carton: null, deckNo: 0,
+    };
+    netQueue.length = 0; Imps.clear(); flyers.length = 0; fx.length = 0;
+    setState(S.ESPERA_RED);
+  }
+  CU.Net.onStart = () => { CU.Lobby.close(); newOnlineGame(); Sfx.startBGM(); };   // «Jugar» online
+  CU.Net.onEvent = (e) => { if (G && G.online) netQueue.push(e); };
+  CU.Lobby.onBack = () => { G = null; setState(S.MENU); };
+
+  // El cliente procesa un evento solo cuando no está animando (las animaciones duran más que la red).
+  function netIdle() {
+    return state === S.ESPERA_RED || state === S.TURNO_JUGADOR || state === S.TURNO_RIVAL_RED
+      || (state === S.VALIDAR_JUGADA && G.play && G.play.phase === 'await');
+  }
+  function processNet() {
+    while (G && G.online && netQueue.length && netIdle()) handleNet(netQueue.shift());
+  }
+  const whoOf = (w) => (w === 'you' ? G.p : G.a);
+  function setScores(sc) { G.p.score = sc.you; G.a.score = sc.rival; }
+
+  function handleNet(e) {
+    switch (e.type) {
+      case 'deal': {
+        if (e.deckNo !== G.deckNo) {                                       // mazo nuevo
+          G.table = []; G.p.pile = []; G.a.pile = []; G.seen = []; G.lastCapturer = null; G.deckNo = e.deckNo;
+        }
+        if (!R.CAIDA_ENTRE_REPARTOS) clearLastPlayed();
+        G.dealerIsP = e.dealerIsYou;
+        const mano = G.dealerIsP ? G.a : G.p, otro = mano === G.p ? G.a : G.p;
+        const mine = e.hand.map(mkCard);
+        G.dealQueue = [];
+        for (const who of [mano, otro]) for (let i = 0; i < 5; i++) G.dealQueue.push({ who, card: who === G.p ? mine[i] : mkHidden() });
+        G.deck = new Array(e.deckCount + G.dealQueue.length).fill(null);  // solo para mostrar cuántas quedan
+        G.dealTimer = 0;
+        setState(S.REPARTIR_CARTAS);
+        break;
+      }
+      case 'ronda': {
+        const who = whoOf(e.who), before = who.score;
+        setScores(e.scores);
+        if (e.kind === 'cuatro') { popup(CU.TEXT.cuatro, W / 2, 330, '#ffe066', 26); break; }   // le sigue gameOver
+        flyPoints(who, before);
+        popup(CU.TEXT.ronda + (e.points ? ' +' + e.points : ''), W / 2, who === G.p ? 440 : 230, '#ffe066', 26);
+        Sfx.ronda();
+        break;
+      }
+      case 'turn':
+        setState(e.yourTurn ? S.TURNO_JUGADOR : S.TURNO_RIVAL_RED);
+        break;
+      case 'played': {
+        if (e.by === 'rival') {
+          const slot = G.a.hand[0] || mkHidden(), card = mkCard(e.card);
+          card.x = slot.x; card.y = slot.y;                               // sale desde el reverso que tenía el rival
+          G.a.hand[0] = card;
+          playCard(G.a, card);
+          G.play.net = e;
+        } else if (G.play && G.play.card.id === e.card) {
+          G.play.net = e; G.play.phase = 'resolve'; resolvePlay();
+        }
+        break;
+      }
+      case 'carton': {
+        const to = e.sobrantesTo ? whoOf(e.sobrantesTo) : null;
+        if (to) {
+          const pile = to === G.p ? PILE_P : PILE_A;
+          for (const c of G.table.filter((c) => e.sobrantes.includes(c.id))) { to.pile.push(c); moveTo(c, pile.x, pile.y, 0.5); c.toPile = true; }
+          G.table = G.table.filter((c) => !e.sobrantes.includes(c.id));
+        }
+        G.carton = { nP: e.you, nA: e.rival, res: { a: e.add.you, b: e.add.rival, tie: e.tie }, net: e, shownP: 0, shownA: 0, applied: false };
+        setState(S.CONTEO_CARTON);
+        break;
+      }
+      case 'gameOver':
+        setScores(e.scores);
+        G.winner = e.winner === 'you' ? G.p : G.a;
+        endGame();
+        break;
+      case 'rivalLeft':
+      case 'disconnected':
+        if (state === S.JUEGO_TERMINADO) break;
+        G.abandoned = e.type === 'rivalLeft' ? 'Tu amigo salió de la mesa' : 'Se perdió la conexión con el servidor';
+        G.winner = null;                                  // nadie gana una chica que no se terminó
+        endGame();
+        break;
+    }
   }
 
   function newDeck() {
@@ -276,7 +278,7 @@
 
   function popup(text, x, y, color, size = 28) { fx.push({ type: 'text', text, x, y, color, size, life: 1.6, max: 1.6 }); }
   function say(kind) {
-    const list = G.rival.phrases[kind]; if (!list) return;
+    const list = G.rival.phrases[kind]; if (!list || !list.length) return;
     G.bubble = { text: pick(list), life: 2.8 };
   }
 
@@ -294,10 +296,18 @@
     setState(S.VALIDAR_JUGADA);
   }
 
+  // Resultado de la jugada: con la IA lo calculan las reglas locales; online lo dicta el servidor.
+  function judge(card, other) {
+    const n = G.play.net;
+    if (!n) return Rules.findCapture(card, G.table, lastPlayedBy(other));
+    if (!n.capture) return null;
+    return { kind: n.capture.kind, taken: n.capture.taken.map((id) => G.table.find((c) => c.id === id)).filter(Boolean), caida: n.caida, limpia: n.limpia };
+  }
+
   function resolvePlay() {
     const { who, card, isP } = G.play;
     const other = isP ? G.a : G.p;
-    const cap = Rules.findCapture(card, G.table, lastPlayedBy(other));
+    const cap = judge(card, other);
     G.seen.push(card);
     if (!cap) {
       G.table.push(card);
@@ -306,14 +316,15 @@
       G.play.phase = 'done'; G.play.t = 0;
       return;
     }
-    const pts = Rules.playPoints(cap, who.score);
+    const n = G.play.net;
+    const pts = n ? { points: n.points, caida: n.caida, limpia: n.limpia, limpiaAnulada: n.limpiaAnulada } : Rules.playPoints(cap, who.score);
     G.play.cap = cap; G.play.pts = pts;
     G.table.push(card);
     G.play.taking = [card, ...cap.taken];
     for (const c of G.play.taking) c.hl = true;
     G.play.phase = 'highlight'; G.play.t = 0;
     const before = who.score;
-    who.score += pts.points;
+    if (n) setScores(n.scores); else who.score += pts.points;
     flyPoints(who, before);
     const cx = W / 2, cy = (TABLE_TOP + TABLE_BOTTOM) / 2;
     if (pts.caida && pts.limpia) { popup('¡CAÍDA Y LIMPIA!', cx, cy, '#ffe066', 26); Sfx.playCaidaYLimpia(); }   // látigo + risa
@@ -347,6 +358,7 @@
   function afterPlay() {
     const wasP = G.play.isP;
     G.play = null;                       // la jugada terminó: no debe quedar referencia al mazo anterior
+    if (G.online) { setState(S.ESPERA_RED); return; }   // el servidor decide: turno, reparto, cartón o fin
     if (checkWin()) return;
     if (G.p.hand.length === 0 && G.a.hand.length === 0) {
       if (G.deck.length > 0) { startDeal(); return; }
@@ -375,7 +387,8 @@
     Imps.clear();
     if (isDevil() && !pWon) Imps.burst(W / 2, 250, 10, 40);
     say(pWon ? 'lose' : 'win');
-    if (pWon) Sfx.win(); else Sfx.lose();
+    if (G.abandoned && !G.winner) { /* interrumpida: sin fanfarria */ } else if (pWon) Sfx.win(); else Sfx.lose();
+    if (G.online) return;
     try {
       const key = 'cu.wins.' + G.rival.id;
       if (pWon) localStorage.setItem(key, String((parseInt(localStorage.getItem(key), 10) || 0) + 1));
@@ -403,6 +416,7 @@
     Imps.update(dt);
     updateFlyers(dt);
     if (!G) return;
+    processNet();
     if (isDevil() && state !== S.JUEGO_TERMINADO) Imps.emit(dt, AMBIENT_ZONE, C.IMPS.AMBIENT_IMPS, C.IMPS.AMBIENT_SPARKS);
     if (G.bubble) { G.bubble.life -= dt; if (G.bubble.life <= 0) G.bubble = null; }
     for (const c of allCards()) {
@@ -418,7 +432,9 @@
       case S.REPARTIR_CARTAS: {
         G.dealTimer -= dt;
         if (G.dealQueue.length && G.dealTimer <= 0) {
-          const who = G.dealQueue.shift(), c = G.deck.pop();
+          let who, c;
+          if (G.online) { ({ who, card: c } = G.dealQueue.shift()); G.deck.pop(); }
+          else { who = G.dealQueue.shift(); c = G.deck.pop(); }
           c.x = DECK_POS.x; c.y = DECK_POS.y; c.faceUp = who === G.p; c.hidden = false; c.toPile = false;
           who.hand.push(c);
           layoutHands(C.ANIM_DEAL);                         // la carta vuela desde el mazo
@@ -426,11 +442,12 @@
           G.dealTimer = C.DEAL_GAP;
         }
         if (!G.dealQueue.length && G.dealTimer <= -Math.min(0.35, C.HIGHLIGHT)) {
+          if (G.online) { setState(S.ESPERA_RED); break; }   // la ronda y el turno los anuncia el servidor
           // ronda / cuatro iguales
           for (const who of [G.p, G.a]) {
             const r = Rules.checkRonda(who.hand, who.score);
             if (!r) continue;
-            if (r.type === 'cuatro') { popup(CU.TEXT.cuatro, W / 2, 330, '#ffe066', 26); G.winner = who; endGame(); return; }
+            if (r.type === 'cuatro') { popup(CU.TEXT.cuatro, W / 2, 330, '#ffe066', 26); who.score = Math.max(who.score, R.WIN_POINTS); G.winner = who; endGame(); return; }
             const before = who.score;
             who.score += r.points;
             flyPoints(who, before);
@@ -457,7 +474,10 @@
       }
       case S.VALIDAR_JUGADA: {
         const P = G.play; P.t += dt;
-        if (P.phase === 'move' && P.t >= C.ANIM_PLAY) { P.phase = 'resolve'; resolvePlay(); }
+        if (P.phase === 'move' && P.t >= C.ANIM_PLAY) {
+          if (G.online && !P.net) P.phase = 'await';                // la carta ya está en la mesa; falta el veredicto
+          else { P.phase = 'resolve'; resolvePlay(); }
+        }
         else if (P.phase === 'highlight' && P.t >= C.HIGHLIGHT) { P.phase = 'collect'; P.t = 0; finishCapture(); }
         else if (P.phase === 'collect' && P.t >= C.ANIM_CAPTURE) { P.phase = 'done'; P.t = 0; }
         else if (P.phase === 'done' && P.t >= 0.12) afterPlay();
@@ -472,12 +492,13 @@
         if (!K.applied && K.shownP >= K.nP && K.shownA >= K.nA) {
           K.applied = true; K.appliedAt = stateTime;
           const bp = G.p.score, ba = G.a.score;
-          G.p.score += K.res.a; G.a.score += K.res.b;
+          if (K.net) setScores(K.net.scores); else { G.p.score += K.res.a; G.a.score += K.res.b; }
           flyPoints(G.p, bp); flyPoints(G.a, ba);
           if (K.res.b && isDevil()) Imps.burst(W / 2, 320, 6, 30);
           if (K.res.a || K.res.b) Sfx.ronda();
         }
         if (K.applied && stateTime - K.appliedAt > C.CARTON_HOLD) {
+          if (G.online) { setState(S.ESPERA_RED); break; }   // el servidor manda el mazo nuevo o el fin
           if (checkWin()) return;
           newDeck();
         }
@@ -516,6 +537,10 @@
 
   const MENU_ROWS = { y0: 250, h: 74, gap: 8 };
   const BTN = {
+    ia: { x: 40, y: 262, w: 280, h: 56 },
+    online: { x: 40, y: 330, w: 280, h: 56 },
+    back: { x: 14, y: 228, w: 76, h: 24 },
+    menuOnline: { x: 128, y: 476, w: 104, h: 40 },
     sound: { x: 14, y: 600, w: 104, h: 26 },
     again: { x: 70, y: 476, w: 104, h: 40 },
     menu: { x: 186, y: 476, w: 104, h: 40 },
@@ -524,7 +549,15 @@
 
   function onTap(p) {
     Sfx.unlock();                                            // reanuda el contexto para los efectos (gesto del usuario)
+    if (state === S.LOBBY) return;                           // el submenú online (HTML) recibe los toques
     if (state === S.MENU) {
+      if (inRect(p, BTN.sound)) { Sfx.toggle(); return; }
+      if (inRect(p, BTN.ia)) { Sfx.select(); setState(S.MENU_IA); return; }
+      if (inRect(p, BTN.online)) { Sfx.select(); setState(S.LOBBY); CU.Lobby.open(); return; }
+      return;
+    }
+    if (state === S.MENU_IA) {
+      if (inRect(p, BTN.back)) { Sfx.select(); setState(S.MENU); return; }
       if (inRect(p, BTN.sound)) { Sfx.toggle(); return; }
       for (let i = 0; i < CU.RIVALS.length; i++) {
         const y = MENU_ROWS.y0 + 8 + i * (MENU_ROWS.h + MENU_ROWS.gap);
@@ -533,15 +566,31 @@
       return;
     }
     if (state === S.JUEGO_TERMINADO && stateTime > 0.8) {
+      if (G.online) { if (inRect(p, BTN.menuOnline)) goMenu(); return; }
       if (inRect(p, BTN.again)) { newGame(CU.RIVALS.indexOf(G.rival)); Sfx.resumeBGM(); }
-      else if (inRect(p, BTN.menu)) { G = null; Imps.clear(); setState(S.MENU); Sfx.resumeBGM(); }
+      else if (inRect(p, BTN.menu)) goMenu();
       return;
     }
     if (state !== S.TURNO_JUGADOR) return;
     const hit = [...G.p.hand].reverse().find((c) => Math.abs(p.x - c.x) < C.HAND_W / 2 && Math.abs(p.y - c.y) < C.HAND_H / 2 + 8);
     if (!hit) { G.selected = null; layoutHands(); return; }
-    if (G.selected === hit) { playCard(G.p, hit); return; }   // segundo toque: jugar
+    if (G.selected === hit) { humanPlay(hit); return; }      // segundo toque: jugar
     G.selected = hit; Sfx.select(); layoutHands();             // primer toque: elegir y ver qué levanta
+  }
+
+  function goMenu() {
+    if (G && G.online) CU.Net.leave();
+    G = null; netQueue.length = 0; Imps.clear(); setState(S.MENU); Sfx.resumeBGM();
+  }
+
+  // Jugada del humano: local se resuelve aquí; online se envía al servidor y se espera su veredicto.
+  function humanPlay(card) {
+    playCard(G.p, card);
+    if (!G.online) return;
+    CU.Net.move(card.id).then((r) => {
+      if (r.ok || !G || !G.online) return;
+      G.abandoned = 'El servidor rechazó la jugada: ' + (r.error || 'error'); G.winner = null; endGame();
+    });
   }
 
   canvas.addEventListener('pointerdown', (e) => {
@@ -551,7 +600,7 @@
   });
   window.addEventListener('keydown', (e) => {
     if (state === S.TURNO_JUGADOR && G && /^[1-5]$/.test(e.key)) {
-      const c = G.p.hand[parseInt(e.key, 10) - 1]; if (c) { Sfx.unlock(); Sfx.resumeBGM(); playCard(G.p, c); }
+      const c = G.p.hand[parseInt(e.key, 10) - 1]; if (c) { Sfx.unlock(); Sfx.resumeBGM(); humanPlay(c); }
     }
   });
   window.addEventListener('resize', resize);
@@ -612,6 +661,7 @@
     drawScore(G.p, 16, 590, 'left', 'Tú');
     // turno
     if (state === S.TURNO_JUGADOR && !G.selected) txt('Tu turno: elige una carta', W / 2, 478, 12, '#ffe066', 'center', '800');
+    if (state === S.TURNO_RIVAL_RED) txt('esperando su jugada' + '.'.repeat(1 + Math.floor(t * 3) % 3), 74, 132, 9, '#ffe9a8', 'left', '700', false);
     if (state === S.TURNO_IA) txt('pensando' + '.'.repeat(1 + Math.floor(t * 3) % 3), 74, 132, 9, '#ffe9a8', 'left', '700', false);   // bajo el nombre, no sobre la mano
     txt((G.dealerIsP ? 'Das tú' : 'Da ' + G.rival.name.split(' ').slice(-1)[0]) + ' · Mazo ' + G.deckNo, W - 14, 622, 8.5, 'rgba(255,255,255,0.6)', 'right', '600', false);
     // globo de diálogo
@@ -650,11 +700,16 @@
     ctx.fillStyle = 'rgba(0,0,0,0.72)'; ctx.fillRect(0, 0, W, H);
     const pWon = G.winner === G.p;
     drawPortrait(G.rival, W / 2, 230, 1.8, t);
-    txt(pWon ? CU.TEXT.youWin : CU.TEXT.youLose, W / 2, 320, 26, pWon ? '#ffe066' : '#ff9f8f');
+    const title = G.abandoned && !G.winner ? 'Partida interrumpida' : pWon ? CU.TEXT.youWin : CU.TEXT.youLose;
+    txt(title, W / 2, 320, 26, pWon ? '#ffe066' : G.abandoned && !G.winner ? '#fbf3e4' : '#ff9f8f');
+    if (G.abandoned) txt(G.abandoned, W / 2, 392, 12, '#fbf3e4', 'center', '600', false);
     txt(G.p.score + '  –  ' + G.a.score, W / 2, 356, 20, '#fff');
     if (G.bubble) txt('«' + G.bubble.text + '»', W / 2, 392, 12, '#fbf3e4', 'center', '600', false);
     wrapLines(G.rival.legend, 300, '500 9.5px system-ui, sans-serif').slice(0, 3).forEach((ln, i) => txt(ln, W / 2, 410 + i * 14, 9.5, 'rgba(255,255,255,0.75)', 'center', '500', false));
-    if (stateTime > 0.8) { button(BTN.again, 'Revancha', true); button(BTN.menu, 'Menú', false); }
+    if (stateTime > 0.8) {
+      if (G.online) button(BTN.menuOnline, 'Menú', true);
+      else { button(BTN.again, 'Revancha', true); button(BTN.menu, 'Menú', false); }
+    }
   }
 
   function drawMenu(t) {
@@ -670,6 +725,14 @@
       ctx.save(); ctx.translate(W / 2 + (i - 1.5) * 26, 196); ctx.rotate((i - 1.5) * 0.18);
       drawCard({ x: 0, y: 0, faceUp: true, rank: r, suit: CU.SUITS[i] }, 46, 66); ctx.restore();
     });
+    if (state !== S.MENU_IA) {
+      // menú principal: dos modos de juego
+      button(BTN.ia, '🤖  Jugar contra la IA', true);
+      button(BTN.online, '🤝  Jugar con un Amigo (Online)', false);
+      wrapLines(CU.TEXT.lore, 290, '500 10px system-ui, sans-serif').slice(0, 4)
+        .forEach((ln, i) => txt(ln, W / 2, 420 + i * 15, 10, 'rgba(251,243,228,0.8)', 'center', '500', false));
+    } else {
+    button(BTN.back, '‹ Volver', false);
     txt('Elige tu rival', W / 2, 240, 12, '#f5c542', 'center', '800');
     CU.RIVALS.forEach((rv, i) => {
       const y = MENU_ROWS.y0 + 8 + i * (MENU_ROWS.h + MENU_ROWS.gap);
@@ -682,6 +745,7 @@
       let wins = 0; try { wins = parseInt(localStorage.getItem('cu.wins.' + rv.id), 10) || 0; } catch { /* */ }
       txt(wins ? 'Le ganaste ' + wins + (wins === 1 ? ' vez' : ' veces') : '«' + rv.phrases.hello[0] + '»', 96, y + 54, 8.5, 'rgba(255,255,255,0.75)', 'left', '600', false);
     });
+    }
     button(BTN.sound, Sfx.isMuted() ? 'Sonido: NO' : 'Sonido: SÍ', false);
     txt('v' + CU.META.version + ' | Desarrollado por ' + CU.META.author, W - 12, 628, 7.5, 'rgba(251,243,228,0.55)', 'right', '500', false);
     const au = Sfx.status(); txt('Audio: ' + au.mode + (au.loaded.includes('piano') ? ' · fondo: piano' : ''), W - 12, 612, 7.5, 'rgba(251,243,228,0.55)', 'right', '500', false);
@@ -689,7 +753,7 @@
 
   function render() {
     ctx.clearRect(0, 0, W, H);
-    if (state === S.MENU || !G) drawMenu(simTime); else drawGame(simTime);
+    if (!G || state === S.MENU || state === S.MENU_IA || state === S.LOBBY) drawMenu(simTime); else drawGame(simTime);
     Imps.draw();
     for (const f of fx) { ctx.globalAlpha = clamp(f.life / 0.5, 0, 1); txt(f.text, f.x, f.y, f.size, f.color); ctx.globalAlpha = 1; }
   }
@@ -713,5 +777,5 @@
   requestAnimationFrame((t) => { last = t; frame(t); });
 
   // Gancho para pruebas automatizadas.
-  CU._debug = { S, get state() { return state; }, get game() { return G; }, get frames() { return frames; }, newGame, playCard, aiChoose, setState, render, flyPoints };
+  CU._debug = { S, get state() { return state; }, get game() { return G; }, get frames() { return frames; }, newGame, playCard, aiChoose, setState, render, flyPoints, humanPlay, netQueue };
 })(window.CU);

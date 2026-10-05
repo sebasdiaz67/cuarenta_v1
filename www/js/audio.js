@@ -2,7 +2,7 @@
  * Cuarenta: El Juicio de las Leyendas
  * Archivo: js/audio.js — Motor de audio: sampler + secuenciador «Banda de Pueblo Dicembrina» + efectos de jugada
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * Módulo de audio por muestras v1.2.0 · Juego v1.5.0
+ * Módulo de audio por muestras v1.2.0 · Juego v1.6.0
  * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados.
  */
 /*

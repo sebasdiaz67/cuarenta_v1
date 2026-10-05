@@ -1,14 +1,15 @@
 # Cuarenta: El Juicio de las Leyendas
 
 El juego de cartas de Quito contra cuatro leyendas de la ciudad, ambientado en las Fiestas de Quito.
-HTML5 Canvas 2D + JavaScript vanilla: **sin dependencias, sin módulos ES, sin archivos de imagen**. Funciona sin conexión y con doble clic (`file://`).
+HTML5 Canvas 2D + JavaScript vanilla: **el cliente no tiene dependencias, ni módulos ES, ni archivos de imagen**. Contra la IA funciona sin conexión y con doble clic (`file://`). El modo **online 1 contra 1** usa un servidor Node (`server.js`).
 
-**Versión:** 1.5.0 · **Autor:** Byron Sebastián Rosero Díaz — Ingeniero de Software
+**Versión:** 1.6.0 · **Autor:** Byron Sebastián Rosero Díaz — Ingeniero de Software
 
 ---
 
 ## Índice
 1. [Cómo se juega](#cómo-se-juega)
+1. [Modo online](#modo-online)
 2. [Reglas](#reglas)
 3. [Rivales e IA](#rivales-e-ia)
 4. [Sonido y música](#sonido-y-música)
@@ -29,8 +30,22 @@ HTML5 Canvas 2D + JavaScript vanilla: **sin dependencias, sin módulos ES, sin a
 3. Segundo toque sobre la misma carta: la juegas. En teclado, las teclas **1–5** juegan directamente.
 4. Gana la chica quien llegue primero a **40 puntos**.
 
+## Modo online
+Menú principal → **«🤝 Jugar con un Amigo (Online)»** → uno pulsa **Crear Mesa** y comparte el código de 4 dígitos; el otro lo escribe y pulsa **Unirse a Mesa**.
+
+```
+npm install          # solo para el servidor (express, socket.io)
+npm start            # http://localhost:8080 — sirve el juego y el modo online
+```
+- **Servidor autoritativo:** el servidor baraja (con `crypto`), reparte, valida cada jugada (turno y carta) y aplica **las mismas reglas** del juego (`www/js/rules.js` se usa en el navegador y en Node). Cada teléfono recibe solo su mano: el rival aparece como reversos. No se puede hacer trampa mirando el código.
+- **Eventos:** `createRoom` → código · `joinRoom({code})` → `gameStart` · `playerMove({cardId})` → el servidor emite `game` (`deal`, `ronda`, `turn`, `played`, `carton`, `gameOver`) a cada jugador y `rivalMoved` al rival · `rivalLeft` si el otro sale.
+- **Memoria del servidor:** las mesas se borran al desconectarse alguien, al volver al menú, 30 s después de terminar y a los 10 min si nadie se une. Tope de 5 000 mesas y 10 intentos de unirse por minuto.
+- **Con doble clic (`file://`)** el modo online no está disponible (no hay servidor): el submenú lo explica.
+- **Para el APK:** desplegar `server.js` con HTTPS (Render, Railway, VPS…) y poner su URL en `CU.NET.SERVER_URL` (`config.js`). Orígenes permitidos: variable `ALLOWED_ORIGINS` (por defecto localhost y Capacitor).
+- Si el amigo sale o se cae la conexión: «Partida interrumpida» (nadie gana). Aún no hay reconexión.
+
 ## Reglas
-Implementadas en `CU.Rules` (`js/game.js`), como funciones puras. Las variantes se configuran en `CU.RULES` (`js/config.js`).
+Implementadas en `CU.Rules` (`js/rules.js`), como funciones puras compartidas por el juego local y el servidor online. Las variantes se configuran en `CU.RULES` (`js/config.js`).
 
 ### Baraja
 | Concepto | Valor |
@@ -65,7 +80,7 @@ Ejemplos verificados en las pruebas:
 | **Caída** | +2 | Emparejar **por igual** la carta exacta que el rival lanzó en el turno inmediatamente anterior. No cuenta si esa carta solo se levanta por escalera o por suma. |
 | **Limpia** | +2 | Dejar la mesa vacía. Se acumula con la caída (caída y limpia = 4). |
 | **Ronda** | +2 | Recibir tres cartas del mismo valor en el reparto. |
-| **Cuatro iguales** | gana la chica | Recibir las cuatro del mismo valor. |
+| **Cuatro iguales** (doble ronda) | gana la chica | Recibir las cuatro del mismo valor: victoria inmediata, el marcador sube a 40. |
 | **Cartón** | 6 + 1 por carta sobre 20, redondeado a par | Al terminar el mazo, quien tiene más cartas (con 20 o más). 20 → 6, 21–22 → 8, 23–24 → 10, 30 → 16. |
 | **Dos por dar** | +2 | Empate de cartón 20–20: los recibe el que repartió. |
 
@@ -195,25 +210,29 @@ Solo en `localStorage`. Sin cuentas, sin red y sin datos personales.
 | Clave | Contenido |
 |---|---|
 | `cu.muted` | `1` si el sonido está apagado |
-| `cu.wins.<rival>` | Veces que le ganaste a cada leyenda |
+| `cu.wins.<rival>` | Veces que le ganaste a cada leyenda (no cuenta el modo online) |
 
 ## Estructura del código
 ```
 www/index.html        canvas, metadatos de autoría, orden de carga de scripts
 www/css/style.css     reset táctil, paño de fondo, área segura
-www/js/config.js      metadatos, motor (CFG), reglas (RULES), baraja, brillos, rivales y frases, textos
+www/js/config.js      metadatos, motor (CFG), reglas (RULES), baraja, brillos, rivales, rival online, red (NET), textos
+www/js/rules.js       reglas puras (navegador y Node) → CU.Rules
 www/js/audio.js       muestras, secuenciador, efectos sintetizados, autoplay → CU_AUDIO
 www/js/draw.js        arte procedural, sprites, perros/tantos, retratos, escenarios, partículas → CU.Draw
-www/js/game.js        reglas puras, IA, estados, entrada, composición de pantallas, bucle
+www/js/net.js         conexión online (Socket.io bajo demanda) y submenú «Jugar con un Amigo» → CU.Net, CU.Lobby
+www/js/game.js        IA, estados, modo online (cola de eventos), entrada, pantallas, bucle
+server.js             servidor Express + Socket.io (salas, límites, CORS)
+server/match.js       árbitro autoritativo de una partida online
 www/audio/LEEME.md    especificación de las muestras de audio
 tests/smoke.mjs       reglas + partida completa + rendimiento (file://)
 tests/audio.mjs       motor de audio por HTTP con las muestras reales
 tests/make-fixtures.mjs  (obsoleto) generaba WAV de prueba; ya no lo usa ninguna prueba
 specs/                especificaciones SDD (001 motor y reglas · 002 arte, música y dinamismo · 003 arte cartoon · 004 audio)
 ```
-Orden de carga obligatorio: `config.js` → `audio.js` → `draw.js` → `game.js`.
+Orden de carga obligatorio: `config.js` → `rules.js` → `audio.js` → `draw.js` → `net.js` → `game.js`.
 
-**Estados del juego:** `MENU → REPARTIR_CARTAS → TURNO_JUGADOR ⇄ TURNO_IA → VALIDAR_JUGADA → … → CONTEO_CARTON → … → JUEGO_TERMINADO`.
+**Estados del juego:** `MENU → MENU_IA | LOBBY → REPARTIR_CARTAS → TURNO_JUGADOR ⇄ TURNO_IA → VALIDAR_JUGADA → … → CONTEO_CARTON → … → JUEGO_TERMINADO`. Online: `TURNO_RIVAL_RED` (esperando la jugada del amigo) y `ESPERA_RED` (entre eventos del servidor).
 
 ## Configuración
 | Dónde | Qué se ajusta |
@@ -226,8 +245,11 @@ Orden de carga obligatorio: `config.js` → `audio.js` → `draw.js` → `game.j
 ## Pruebas
 ```
 npm i -D playwright && npx playwright install chromium
-node tests/smoke.mjs   # 62 comprobaciones (file://, audio sintetizado)
+npm test               # las 4 suites
+node tests/smoke.mjs   # 66 comprobaciones (file://, audio sintetizado)
 node tests/audio.mjs   # 21 comprobaciones (HTTP, con los MP3 reales de www/audio/)
+node tests/match.mjs   # 15: árbitro (300 partidas) + protocolo Socket.io
+node tests/online.mjs  # 15: dos navegadores reales juegan una partida completa contra server.js
 ```
 Cubren:
 - Reglas: baraja, nomenclatura J/Q/K, igual, suma, escalera, figuras que no suman, caída, limpia, regla de 38, ronda, cartón y dos por dar.
@@ -237,6 +259,7 @@ Cubren:
 - Audio: carga de los MP3, detección del archivo faltante, silencio inicial, música solo tras «Jugar», patrón exacto, desvío del ritmo menor a 1 ms, liberación de nodos y robo de voz con el cupo lleno.
 
 ## Pendientes conocidos
+- Desplegar el servidor online con HTTPS y configurar `CU.NET.SERVER_URL` para el APK; reconexión tras caídas de red.
 - Falta `vientos_pasacalle.mp3` (hoy se sintetiza). Confirmar la licencia de uso comercial de los 5 MP3.
 - Pasar retratos y escenarios al estilo cartoon (hoy desentonan con las cartas).
 - Confirmar si después de una suma se sigue la escalera hacia las figuras (`ESCALERA_TRAS_SUMA`).
@@ -252,6 +275,6 @@ Donde las fuentes difieren, la opción quedó configurable en `CU.RULES`.
 
 **Arte y música:** diseño procedural original. No reproduce barajas comerciales ni canciones protegidas.
 
-**Cuarenta: El Juicio de las Leyendas** · v1.5.0
+**Cuarenta: El Juicio de las Leyendas** · v1.6.0
 Byron Sebastián Rosero Díaz — Ingeniero de Software
 © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. Software propietario: ver [`LICENSE`](LICENSE).

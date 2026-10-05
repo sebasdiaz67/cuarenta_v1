@@ -1,7 +1,7 @@
 # STATUS — cuarenta
 
 **Última actualización:** 2026-10-04
-**Estado general:** v1.5.0 — Arte cartoon, perros y tantos, diablillos, fondo de piano en bucle de 63 s y efectos con MP3 reales. Sin empaquetado.
+**Estado general:** v1.6.0 — Juego completo contra 4 leyendas + modo online 1 contra 1 con servidor autoritativo (probado en local). Sin desplegar ni empaquetar.
 
 ## Features
 | Spec | Estado | Notas |
@@ -9,15 +9,18 @@
 | [001-motor-y-reglas](specs/001-motor-y-reglas/spec.md) | Implementada | Smoke 31/31 |
 | [002-arte-musica-dinamismo](specs/002-arte-musica-dinamismo/spec.md) | Implementada | Smoke 37/37 · render p95 2.5 ms (CPU ×4) |
 | [003-arte-cartoon](specs/003-arte-cartoon/spec.md) | Implementada | Smoke 39/39 · perros y tantos en el marcador |
+| [005-multijugador-online](specs/005-multijugador-online/spec.md) | Implementada (local) | match 15/15 · online E2E 15/15 |
 | [004-audio-muestras](specs/004-audio-muestras/spec.md) | Implementada · falta 1 muestra | audio 15/15 (MP3 reales) · smoke 53/53 |
 
 ## Próximos pasos (priorizados)
+0. Desplegar `server.js` (HTTPS) y poner la URL en `CU.NET.SERVER_URL`; probar con dos celulares en redes distintas.
 1. Probar en celular real: legibilidad de cartas y dificultad de cada leyenda.
 2. Spec 005 — Retratos y escenarios en el mismo estilo cartoon (hoy desentonan con las cartas).
 3. Spec 006 — Variar el patrón de banda por leyenda y efectos propios de cada rival.
 4. Spec 007 — Elegir qué suma levantar cuando hay varias; modo «2 de 3 chicas»; estadísticas.
 
 ## Bloqueos / pendientes del usuario
+- Elegir hosting para el servidor online (Render, Railway, VPS…).
 - **Licencia del fondo «El Chulla Quiteño» (obra y grabación)** antes de publicar en Google Play.
 - Sacar `chulla_quiteño_piano.mp3` de `www/audio/` (no se usa; se empaquetaría).
 - Confirmar si se permite caída sobre la última carta de la mano anterior (`CAIDA_ENTRE_REPARTOS`, hoy `false`).
@@ -39,3 +42,4 @@
 - 2026-10-05 — v1.4.0: audio con MP3 reales (5/6; vientos sintetizados), usingSynthesizer, salto de silencio inicial, música solo tras «Jugar», robo de voz. Audio 15/15, smoke 53/53.
 - 2026-10-05 — v1.4.1 (QA): bug de caída falsa por escalera corregido (`checkCaida`), estado `lastPlayedCard/lastPlayedBy`, reinicio por mano. Smoke 62/62, audio 15/15.
 - 2026-10-05 — v1.5.0: fondo de piano (recorte de 63 s, bucle nativo, prioridad sobre la banda). Audio 21/21, smoke 62/62.
+- 2026-10-05 — v1.6.0: modo online (rules.js compartido, server/match.js autoritativo, server.js Express+Socket.io, net.js + submenú), menú principal con dos modos, cuatro iguales sube a 40. match 15/15, online 15/15, smoke 66/66, audio 21/21.

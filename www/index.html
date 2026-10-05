@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-  Cuarenta: El Juicio de las Leyendas — v1.4.1
+  Cuarenta: El Juicio de las Leyendas — v1.6.0
   Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
   © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados.
 -->
@@ -10,21 +10,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="author" content="Byron Sebastián Rosero Díaz">
   <meta name="copyright" content="© 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados.">
-  <meta name="version" content="1.4.1">
+  <meta name="version" content="1.6.0">
   <meta name="dcterms.date" content="2026">
   <meta name="description" content="Cuarenta: El Juicio de las Leyendas — el juego de cartas de Quito contra las leyendas de la ciudad.">
   <meta name="theme-color" content="#0c3b22">
   <meta name="mobile-web-app-capable" content="yes">
   <title>Cuarenta: El Juicio de las Leyendas</title>
+  <link rel="icon" href="data:,">  <!-- sin favicon externo: evita un 404 en cada carga -->
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <main id="stage">
     <canvas id="game" aria-label="Mesa de cuarenta"></canvas>
+    <!-- Submenú online (HTML: el código de mesa necesita un campo de texto real con teclado del celular) -->
+    <section id="lobby" class="lobby" hidden aria-labelledby="lb-title">
+      <div class="lobby-card">
+        <h2 id="lb-title">🤝 Jugar con un Amigo</h2>
+        <p class="lb-sub">Online · 1 contra 1</p>
+        <button id="lb-create" class="lb-btn primary" type="button">Crear Mesa</button>
+        <div class="lb-or">o únete con el código de tu amigo</div>
+        <input id="lb-code" class="lb-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4"
+               placeholder="Código de Mesa" autocomplete="off" aria-label="Código de Mesa">
+        <button id="lb-join" class="lb-btn" type="button">Unirse a Mesa</button>
+        <p id="lb-status" class="lb-status" role="status" aria-live="polite"></p>
+        <button id="lb-back" class="lb-link" type="button">‹ Volver al menú</button>
+      </div>
+    </section>
   </main>
+  <!-- Socket.io NO se carga aquí: con file:// o en Capacitor «/socket.io/socket.io.js» no existe.
+       js/net.js lo carga bajo demanda desde el servidor (CU.NET.SERVER_URL) al entrar al modo online. -->
   <script src="js/config.js"></script>
+  <script src="js/rules.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/draw.js"></script>
+  <script src="js/net.js"></script>
   <script src="js/game.js"></script>
 </body>
 </html>

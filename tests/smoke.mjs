@@ -129,6 +129,17 @@ const tapRow = async (i) => page.evaluate((i) => { const c = document.getElement
 { const c = await page.evaluate(() => { const r = document.getElementById('game').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height * 0.12 }; });
   await page.mouse.click(c.x, c.y); await wait(150); }                       // toque fuera de «Jugar» (en el título)
 check('Un toque en el menú que no es «Jugar» no inicia la música', await page.evaluate(() => !CU_AUDIO.isPlayingBGM()));
+const tapAt = async (x, y) => { const q = await page.evaluate(([x, y]) => { const c = document.getElementById('game').getBoundingClientRect(); const s = c.width / 360; return { x: c.left + x * s, y: c.top + y * s }; }, [x, y]); await page.mouse.click(q.x, q.y); };
+await tapAt(180, 290); await wait(200);                                   // «🤖 Jugar contra la IA»
+check('Menú principal → «Jugar contra la IA» abre la lista de leyendas', await page.evaluate(() => CU._debug.state === 'MENU_IA' && !CU_AUDIO.isPlayingBGM()));
+await tapAt(52, 240); await wait(150);                                    // «‹ Volver»
+check('«‹ Volver» regresa al menú principal', await page.evaluate(() => CU._debug.state === 'MENU'));
+await tapAt(180, 358); await wait(200);                                   // «🤝 Jugar con un Amigo (Online)»
+const lob = await page.evaluate(() => ({ s: CU._debug.state, open: !document.getElementById('lobby').hidden, dis: document.getElementById('lb-create').disabled, txt: document.getElementById('lb-status').textContent }));
+check('Online con file:// → submenú abierto, botones deshabilitados y aviso del servidor', lob.s === 'LOBBY' && lob.open && lob.dis && /servidor/.test(lob.txt), JSON.stringify(lob));
+await page.click('#lb-back'); await wait(150);
+check('Sin red no se intentó cargar Socket.io (sin errores) y vuelve al menú', await page.evaluate(() => CU._debug.state === 'MENU' && !window.io && document.getElementById('lobby').hidden));
+await tapAt(180, 290); await wait(200);
 let p = await tapRow(3); await page.mouse.click(p.x, p.y); await wait(300);
 check('Pulsar «Jugar» (elegir leyenda) arma e inicia la música', await page.evaluate(() => CU_AUDIO.isPlayingBGM() && CU_AUDIO.status().armed));
 check('Menú → reparto contra Cantuña y el Diablo', (await page.evaluate(() => CU._debug.game && CU._debug.game.rival.id)) === 'cantuna');

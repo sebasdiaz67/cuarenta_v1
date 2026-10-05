@@ -2,20 +2,21 @@
  * Cuarenta: El Juicio de las Leyendas
  * Archivo: js/config.js — Lore de las leyendas, rivales, baraja y reglas
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.5.0
+ * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.6.0
  */
-/* Solo datos: la lógica vive en game.js. Las reglas con variantes regionales se ajustan en CU.RULES. */
-window.CU = window.CU || {};
+/* Solo datos: las reglas viven en rules.js y el juego en game.js. Las reglas con variantes regionales se ajustan en CU.RULES. */
+// Funciona en el navegador (window) y en Node (globalThis) para que el servidor online use las mismas reglas.
+(function (root) { root.CU = root.CU || {}; })(typeof window !== 'undefined' ? window : globalThis);
 (function (CU) {
   'use strict';
 
   CU.META = {
     name: 'Cuarenta: El Juicio de las Leyendas',
-    version: '1.5.0',
+    version: '1.6.0',
     author: 'Byron Sebastián Rosero Díaz',
     role: 'Ingeniero de Software',
     year: 2026,
-    copyright: '© 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.5.0',
+    copyright: '© 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.6.0',
   };
 
   // ------------------------------------------------------------------ motor
@@ -158,6 +159,24 @@ window.CU = window.CU || {};
     },
   ];
 
+  // ------------------------------------------------------------------ rival en línea (otra persona)
+  // Sin frases automáticas: no se ponen palabras en boca de un jugador real.
+  CU.ONLINE_RIVAL = {
+    id: 'amigo', name: 'Tu amigo', place: 'Mesa en línea', difficulty: 0,
+    legend: 'Una chica de cuarenta entre panas, cada uno desde su celular.',
+    style: {}, colors: { coat: '#1f3a5f', trim: '#f5c542', hat: null, skin: '#c58c5c' },
+    scene: { sky: ['#0b2a4a', '#1d5c8c'], accent: '#f1c40f', label: 'mesa en línea' },
+    phrases: {},
+  };
+
+  // ------------------------------------------------------------------ red (modo online)
+  // SERVER_URL vacío = el mismo servidor que sirve el juego (http://localhost:8080 con `npm start`).
+  // Para el APK (Capacitor) poner la URL pública del servidor, p. ej. 'https://cuarenta.midominio.com'.
+  CU.NET = {
+    SERVER_URL: '',
+    CONNECT_TIMEOUT_MS: 6000,
+  };
+
   // ------------------------------------------------------------------ frases del juego y fiesta
   CU.TEXT = {
     tagline: 'Fiestas de Quito · El juego de cartas de la capital',
@@ -167,4 +186,4 @@ window.CU = window.CU || {};
     regla38: 'Con 38 solo vale la caída',
     youWin: '¡Ganaste la chica!', youLose: 'Perdiste la chica',
   };
-})(window.CU);
+})((typeof window !== 'undefined' ? window : globalThis).CU);

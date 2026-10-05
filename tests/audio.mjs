@@ -54,6 +54,7 @@ await page.evaluate(() => CU_AUDIO.resumeBGM());
 check('resumeBGM() no arranca sin haber pulsado Jugar', await page.evaluate(() => !CU_AUDIO.isPlayingBGM()));
 const row = await page.evaluate(() => { const c = document.getElementById('game').getBoundingClientRect(), s = c.width / 360; return { x: c.left + 180 * s, y: c.top + (258 + 37) * s }; });
 await page.evaluate(() => { window.__starts.length = 0; window.__osc.length = 0; });
+await page.mouse.click(row.x, row.y); await sleep(150);          // «🤖 Jugar contra la IA» (misma altura)
 await page.mouse.click(row.x, row.y);                              // «Jugar» contra el Chulla
 await sleep(1500);
 const pz = await page.evaluate(() => ({ st: CU_AUDIO.status(), loops: window.__starts.filter((x) => x.loop) }));
@@ -72,6 +73,7 @@ await page.reload();
 await page.evaluate(() => CU_AUDIO.preloadAudio());
 const row2 = await page.evaluate(() => { const c = document.getElementById('game').getBoundingClientRect(), s = c.width / 360; return { x: c.left + 180 * s, y: c.top + (258 + 37) * s }; });
 await page.evaluate(() => { window.__starts.length = 0; window.__osc.length = 0; });
+await page.mouse.click(row2.x, row2.y); await sleep(150);          // «🤖 Jugar contra la IA» (misma altura)
 await page.mouse.click(row2.x, row2.y);
 await sleep(4300);
 const seq = await page.evaluate(() => ({ s: window.__starts.slice(), o: window.__osc.slice(), st: CU_AUDIO.status() }));

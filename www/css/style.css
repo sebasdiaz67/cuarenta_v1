@@ -33,3 +33,44 @@ html, body {
   display: flex; align-items: center; justify-content: center;
 }
 canvas#game { display: block; touch-action: none; border-radius: 6px; box-shadow: 0 0 0 3px var(--madera), 0 10px 40px rgba(0,0,0,0.6); }
+
+/* ---------- Notch: en pantallas táctiles, al menos 25 px arriba aunque el WebView reporte 0 en safe-area ---------- */
+@media (pointer: coarse) {
+  #stage { padding-top: max(env(safe-area-inset-top, 0px), 25px); }
+}
+
+/* ---------- Submenú online (paño verde) ---------- */
+/* Fijo a la ventana: no altera el posicionamiento del escenario (#stage) */
+.lobby {
+  position: fixed; inset: 0; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  padding: max(env(safe-area-inset-top, 0px), 25px) 16px env(safe-area-inset-bottom, 0px);
+  background: rgba(0, 0, 0, 0.55);
+}
+.lobby[hidden] { display: none; }
+.lobby-card {
+  width: min(320px, 100%); padding: 22px 20px 16px; border-radius: 14px; text-align: center;
+  color: #fbf3e4; font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  background: radial-gradient(circle at 50% 40%, #1a7a4c 0%, #0b4a2c 70%, #073a22 100%);
+  border: 2px solid #d4a72c; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), inset 0 0 0 4px rgba(0, 0, 0, 0.15);
+}
+.lobby-card h2 { margin: 0; font-size: 20px; color: #f5c542; }
+.lb-sub { margin: 4px 0 16px; font-size: 12px; opacity: 0.8; }
+.lb-btn {
+  display: block; width: 100%; min-height: 46px; margin: 8px 0; border-radius: 10px; font: 800 16px system-ui, sans-serif;
+  color: #fbf3e4; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(251, 243, 228, 0.7); cursor: pointer;
+}
+.lb-btn.primary { background: #d4a72c; border-color: #d4a72c; color: #2b1a08; box-shadow: 0 3px 0 #8a6a12; }
+.lb-btn:disabled { opacity: 0.45; cursor: default; }
+.lb-or { margin: 12px 0 6px; font-size: 12px; opacity: 0.8; }
+.lb-input {
+  width: 100%; min-height: 46px; border-radius: 10px; border: 2px solid #d4a72c; text-align: center;
+  font: 800 24px system-ui, sans-serif; letter-spacing: 8px; color: #2b1a08; background: #fbf3e4;
+  user-select: text; -webkit-user-select: text; touch-action: auto;
+}
+/* El ejemplo se ve normal; el espaciado amplio solo aplica a los dígitos escritos */
+.lb-input::placeholder { letter-spacing: normal; font-size: 16px; font-weight: 600; color: #8a7a5a; }
+.lb-status { min-height: 40px; margin: 10px 0 4px; font-size: 13px; line-height: 1.4; }
+.lb-status .code { display: block; font-size: 34px; font-weight: 900; letter-spacing: 6px; color: #f5c542; }
+.lb-status.error { color: #ffb3a1; }
+.lb-link { background: none; border: 0; color: #fbf3e4; opacity: 0.85; font: 600 13px system-ui, sans-serif; padding: 8px; cursor: pointer; }

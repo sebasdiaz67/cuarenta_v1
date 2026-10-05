@@ -2,7 +2,7 @@
  * Cuarenta: El Juicio de las Leyendas
  * Archivo: js/draw.js — Arte procedural cartoon: naipes quiteños, figuras satíricas, perros y tantos, escenarios y diablillos
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.5.0
+ * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.6.0
  */
 /*
  * Estilo: cartoon humorístico propio — contorno de tinta negra, colores planos saturados, caricatura quiteña.
@@ -54,7 +54,7 @@ window.CU = window.CU || {};
   function button(r, label, primary) {
     rr(r.x, r.y, r.w, r.h, 8); ctx.fillStyle = primary ? '#d4a72c' : 'rgba(255,255,255,0.12)'; ctx.fill();
     ctx.strokeStyle = primary ? '#d4a72c' : 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1.5; ctx.stroke();
-    txt(label, r.x + r.w / 2, r.y + r.h / 2, 12, primary ? '#2b1a08' : '#fff', 'center', '800', false);
+    txt(label, r.x + r.w / 2, r.y + r.h / 2, r.h >= 50 ? 15 : 12, primary ? '#2b1a08' : '#fff', 'center', '800', false);   // botones grandes del menú: 15 px
   }
 
   // =====================================================================
