@@ -30,7 +30,7 @@ async function phone() {
 const A = await phone(), B = await phone();
 
 // ---------- lobby ----------
-await A.tap(180, 358); await B.tap(180, 358); await sleep(200);
+await A.tap(180, 388); await B.tap(180, 388); await sleep(200);
 await A.click('#lb-create');
 await A.waitForSelector('#lb-status .code', { timeout: 8000 });
 const code = await A.textContent('#lb-status .code');
@@ -85,7 +85,7 @@ if (shots) await A.screenshot({ path: path.join(shots, 'online_final_A.png') });
 await sleep(1000);                                                     // el botón «Menú» aparece a los 0.8 s
 await A.tap(180, 496); await B.tap(180, 496); await sleep(300);       // «Menú» en ambos
 check('Menú tras la partida online cierra la mesa en el servidor', rooms.size === 0, String(rooms.size));
-await A.tap(180, 358); await B.tap(180, 358); await sleep(150);
+await A.tap(180, 388); await B.tap(180, 388); await sleep(150);
 await A.click('#lb-create'); await A.waitForSelector('#lb-status .code');
 const code2 = await A.textContent('#lb-status .code');
 await B.fill('#lb-code', code2); await B.click('#lb-join');
