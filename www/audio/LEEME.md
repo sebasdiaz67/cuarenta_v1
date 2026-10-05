@@ -29,3 +29,8 @@ Formato de producción: **MP3** (`CFG.EXT = 'mp3'`). Coloca aquí los 6 archivos
 - **Falta:** `vientos_pasacalle.mp3` → se sintetiza (onda cuadrada filtrada).
 - El silencio inicial (incluido el retardo de ~20 ms del codificador MP3) se salta automáticamente.
 - Pendiente: registrar aquí la fuente y licencia de cada archivo.
+
+## Música de fondo (v1.5.0)
+- `fondo_chulla_piano.mp3`: recorte a 63 s (sin recodificar) de `chulla_quiteño_piano.mp3`. Se repite en bucle desde ~0.37 s hasta 63.0 s.
+- `chulla_quiteño_piano.mp3` (original, 73 s) **no lo usa el juego**: conviene sacarlo de `www/` para que no se empaquete en el APK (+810 KB) y evitar la «ñ» en nombres de archivo.
+- ⚠️ Licencia: «El Chulla Quiteño» es obra protegida; la grabación también tiene derechos. Registrar aquí autorización/licencia antes de publicar.

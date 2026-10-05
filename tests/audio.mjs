@@ -13,9 +13,11 @@ import { fileURLToPath } from 'node:url';
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.mp3': 'audio/mpeg', '.wav': 'audio/wav' };
 const notFound = [];
+let blockPiano = false;                                     // 2.ª corrida: sin piano → respaldo de banda
 const server = http.createServer(async (req, res) => {
   const u = decodeURIComponent(new URL(req.url, 'http://x').pathname);
   if (u === '/favicon.ico') { res.writeHead(204); res.end(); return; }
+  if (blockPiano && u.endsWith('fondo_chulla_piano.mp3')) { notFound.push(u); res.writeHead(404); res.end(); return; }
   const file = path.join(root, 'www', u === '/' ? 'index.html' : u);
   try { const b = await readFile(file); res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' }); res.end(b); }
   catch { notFound.push(u); res.writeHead(404); res.end(); }
@@ -31,7 +33,7 @@ page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 await page.addInitScript(() => {
   window.__starts = []; window.__osc = [];
   const o = AudioBufferSourceNode.prototype.start;
-  AudioBufferSourceNode.prototype.start = function (t, off) { window.__starts.push({ t: t || 0, d: this.buffer ? +this.buffer.duration.toFixed(3) : 0, off: off || 0 }); return o.apply(this, arguments); };
+  AudioBufferSourceNode.prototype.start = function (t, off) { window.__starts.push({ t: t || 0, d: this.buffer ? +this.buffer.duration.toFixed(3) : 0, off: off || 0, loop: this.loop }); return o.apply(this, arguments); };
   const q = OscillatorNode.prototype.start;
   OscillatorNode.prototype.start = function (t) { window.__osc.push({ t: t || 0, type: this.type }); return q.apply(this, arguments); };
 });
@@ -41,9 +43,10 @@ const sleep = (ms) => page.waitForTimeout(ms);
 
 await page.goto(url);
 const st = await page.evaluate(() => CU_AUDIO.preloadAudio().then(() => CU_AUDIO.status()));
-check('preloadAudio(): 5 MP3 decodificados', ['bombo', 'platillo', 'latigo', 'risa', 'perro'].every((n) => st.loaded.includes(n)), JSON.stringify(st.loaded));
+check('preloadAudio(): 6 MP3 decodificados (incluido el piano)', ['bombo', 'platillo', 'latigo', 'risa', 'perro', 'piano'].every((n) => st.loaded.includes(n)), JSON.stringify(st.loaded));
+check('Piano recortado: dura ≈ 63 s', Math.abs(st.durations.piano - 63) < 0.1, String(st.durations.piano));
 check('Falta vientos_pasacalle.mp3: detectado sin romper la carga', st.missing.join() === 'vientos' && st.usingSynthesizer === false, JSON.stringify(st.missing));
-check('Menú informa «Mixto (5/6 muestras)»', st.mode === 'Mixto (5/6 muestras)', st.mode);
+check('Menú informa «Mixto (6/7 muestras)»', st.mode === 'Mixto (6/7 muestras)', st.mode);
 check('Silencio inicial detectado (látigo ≈ 0.21 s; resto ≈ 20 ms de retardo MP3)', Math.abs(st.leadIn.latigo - 0.21) < 0.03 && st.leadIn.bombo < 0.03, JSON.stringify(st.leadIn));
 
 // --- la música solo arranca con «Jugar»
@@ -52,9 +55,27 @@ check('resumeBGM() no arranca sin haber pulsado Jugar', await page.evaluate(() =
 const row = await page.evaluate(() => { const c = document.getElementById('game').getBoundingClientRect(), s = c.width / 360; return { x: c.left + 180 * s, y: c.top + (258 + 37) * s }; });
 await page.evaluate(() => { window.__starts.length = 0; window.__osc.length = 0; });
 await page.mouse.click(row.x, row.y);                              // «Jugar» contra el Chulla
+await sleep(1500);
+const pz = await page.evaluate(() => ({ st: CU_AUDIO.status(), loops: window.__starts.filter((x) => x.loop) }));
+check('Pulsar Jugar → fondo = piano en bucle nativo', pz.st.armed && pz.st.bgm === 'piano' && pz.loops.length === 1, JSON.stringify({ bgm: pz.st.bgm, loops: pz.loops.length }));
+check('Bucle del piano: desde el fin del silencio inicial hasta 63.0 s', pz.st.pianoLoop && pz.st.pianoLoop.loop && pz.st.pianoLoop.end === 63 && pz.st.pianoLoop.start > 0.3 && pz.st.pianoLoop.start < 0.45, JSON.stringify(pz.st.pianoLoop));
+check('Con piano no corre el secuenciador de banda', !pz.loops.length || !(await page.evaluate(() => window.__starts.some((x) => x.d === CU_AUDIO.status().durations.bombo))));
+await page.evaluate(() => CU_AUDIO.stopBGM(0.05)); await sleep(400);
+check('stopBGM() detiene y libera el piano', await page.evaluate(() => CU_AUDIO.status().bgm === 'apagado' && CU_AUDIO.status().pianoLoop === null));
+await page.evaluate(() => CU_AUDIO.resumeBGM()); await sleep(300);
+check('resumeBGM() (revancha/menú) vuelve a sonar el piano', await page.evaluate(() => CU_AUDIO.status().bgm === 'piano'));
+await page.evaluate(() => CU_AUDIO.stopBGM(0.05)); await sleep(300);
+
+// ---------- 2.ª corrida: sin piano → banda con muestras ----------
+blockPiano = true;
+await page.reload();
+await page.evaluate(() => CU_AUDIO.preloadAudio());
+const row2 = await page.evaluate(() => { const c = document.getElementById('game').getBoundingClientRect(), s = c.width / 360; return { x: c.left + 180 * s, y: c.top + (258 + 37) * s }; });
+await page.evaluate(() => { window.__starts.length = 0; window.__osc.length = 0; });
+await page.mouse.click(row2.x, row2.y);
 await sleep(4300);
 const seq = await page.evaluate(() => ({ s: window.__starts.slice(), o: window.__osc.slice(), st: CU_AUDIO.status() }));
-check('Pulsar Jugar arma la música (modo muestras)', seq.st.armed && seq.st.bgm === 'muestras', JSON.stringify({ armed: seq.st.armed, bgm: seq.st.bgm }));
+check('Sin piano: respaldo de banda con muestras', seq.st.armed && seq.st.bgm === 'muestras', JSON.stringify({ armed: seq.st.armed, bgm: seq.st.bgm }));
 const D = seq.st.durations, beat = 60 / 130;
 const loop = seq.s.filter((x) => x.d === D.bombo || x.d === D.platillo);
 const t0 = loop[0] ? loop[0].t : 0;
@@ -91,8 +112,8 @@ check('playPerro() → perro_ladrido.mp3', fx.perro.length === 1 && fx.perro[0].
 check('onended libera todas las voces', fx.freed === 0, String(fx.freed));
 check('Tope de polifonía (≤ 24 con 80 disparos)', fx.peak <= 24, String(fx.peak));
 check('Con el cupo lleno, el ladrido igual suena (roba la voz más vieja)', fx.enJuego.includes(fx.D.perro), fx.enJuego.join());
-const only404 = notFound.every((u) => u === '/audio/vientos_pasacalle.mp3');
-check('Único 404: vientos_pasacalle.mp3; sin otros errores', only404 && errors.every((e) => /404/.test(e)) && errors.length === notFound.length, JSON.stringify({ notFound, errors }));
+const only404 = notFound.every((u) => u === '/audio/vientos_pasacalle.mp3' || u === '/audio/fondo_chulla_piano.mp3');
+check('404 solo de vientos (y del piano bloqueado a propósito); sin otros errores', only404 && errors.every((e) => /404/.test(e)) && errors.length === notFound.length, JSON.stringify({ notFound, errors }));
 
 await browser.close(); server.close();
 for (const r of results) console.log(`${r.ok ? '✔' : '✘'} ${r.name}${r.ok ? '' : '  → ' + r.detail}`);

@@ -2,7 +2,7 @@
  * Cuarenta: El Juicio de las Leyendas
  * Archivo: js/audio.js — Motor de audio: sampler + secuenciador «Banda de Pueblo Dicembrina» + efectos de jugada
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * Módulo de audio por muestras v1.1.0 · Juego v1.4.1
+ * Módulo de audio por muestras v1.2.0 · Juego v1.5.0
  * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados.
  */
 /*
@@ -49,12 +49,15 @@ window.CU = window.CU || {};
     HORIZON_S: 0.12,               // cuánto agenda por delante
     MAX_VOICES: 24,                // polifonía máxima simultánea
     BGM_VOL: 0.5, SFX_VOL: 0.9,
+    PIANO_VOL: 0.9,                // el piano viene ~11 dB más bajo que los golpes: se compensa aquí
+    PIANO_LOOP_END: 63,            // s: el fondo se repite cada 1 min 3 s (cae en una pausa natural de la pieza)
     VIENTOS_MAX_S: null,           // recorte opcional del fragmento de vientos (s); null = suena completo
   };
   // nombre lógico → archivo (sin extensión)
   const SAMPLES = {
     bombo: 'bombo', platillo: 'platillo', vientos: 'vientos_pasacalle',
     latigo: 'latigo', risa: 'risa_diablo', perro: 'perro_ladrido',
+    piano: 'fondo_chulla_piano',   // música de fondo (recorte de 63 s de chulla_quiteño_piano.mp3)
   };
 
   // Patrón por tiempo del compás (4 tiempos). Editable: [muestra, ganancia].
@@ -140,12 +143,13 @@ window.CU = window.CU || {};
     } catch {
       status.loaded = []; status.missing = names.slice();                        // silencioso: el juego sigue sonando
     }
-    status.usingSynthesizer = !buffers.bombo;                                     // sin bombo no hay pulso de banda
+    status.usingSynthesizer = !buffers.bombo && !buffers.piano;                   // sin piano ni bombo: todo sintetizado
     status.mode = status.usingSynthesizer ? 'Sintetizado'
       : status.missing.length ? 'Mixto (' + status.loaded.length + '/' + names.length + ' muestras)' : 'Muestras';
     status.preloaded = true;
-    // Si la música ya sonaba sintetizada y las muestras llegaron después, cambia al sampler en caliente.
-    if (seq.on && !status.usingSynthesizer && seq.mode !== 'muestras') { seq.mode = 'muestras'; seq.beat = 0; }
+    // Si la música ya sonaba con el respaldo y las muestras llegaron después, cambia en caliente.
+    if (bgmOn && buffers.piano && !piano.src) { stopSeq(); rampBus(CFG.PIANO_VOL); startPiano(); }
+    else if (seq.on && !status.usingSynthesizer && seq.mode !== 'muestras') { seq.mode = 'muestras'; seq.beat = 0; }
     return status;
   }
 
@@ -271,35 +275,60 @@ window.CU = window.CU || {};
 
   // La música queda «armada» la primera vez que el jugador pulsa Jugar (elige una leyenda). Antes de eso
   // ningún otro toque la inicia. startBGM() arma y arranca; resumeBGM() solo reanuda si ya estaba armada.
-  let armed = false;
+  //
+  // Fondo, por prioridad: 1) piano (fondo_chulla_piano.mp3) en bucle  2) banda con muestras  3) pasacalle sintetizado.
+  let armed = false, bgmOn = false;
+  const piano = { src: null };
   function startBGM() { armed = true; playLoop(); }
   function resumeBGM() { if (armed) playLoop(); }
+  function rampBus(to, secs = 0.5) {
+    const t = ac.currentTime;
+    bgmBus.gain.cancelScheduledValues(t); bgmBus.gain.setValueAtTime(bgmBus.gain.value, t);
+    bgmBus.gain.linearRampToValueAtTime(to, t + secs);
+  }
   function playLoop() {
     if (!ready()) return;
     resume();
-    const t = ac.currentTime;
-    bgmBus.gain.cancelScheduledValues(t); bgmBus.gain.setValueAtTime(bgmBus.gain.value, t);
-    bgmBus.gain.linearRampToValueAtTime(CFG.BGM_VOL, t + 0.5);
+    rampBus(buffers.piano ? CFG.PIANO_VOL : CFG.BGM_VOL);
+    if (bgmOn) return;
+    bgmOn = true;
+    if (buffers.piano) startPiano(); else startSeq();
+  }
+  // Piano: UN solo AudioBufferSourceNode con loop nativo del hilo de audio (sin huecos ni temporizadores JS).
+  // Repite el tramo [silencio inicial … 63 s]; el corte cae en la pausa de 62.5–63 s de la pieza.
+  function startPiano() {
+    const buf = buffers.piano, src = ac.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    src.loopStart = leadIn.piano || 0;
+    src.loopEnd = Math.min(CFG.PIANO_LOOP_END, buf.duration);
+    src.connect(bgmBus);
+    src.start(ac.currentTime + 0.05, src.loopStart);
+    src.onended = () => { src.disconnect(); if (piano.src === src) piano.src = null; };   // liberación al detener
+    piano.src = src;
+  }
+  function startSeq() {
     if (seq.on) return;
     seq.mode = buffers.bombo ? 'muestras' : 'sintetizado';                       // las voces que falten se sintetizan
-    seq.on = true; seq.beat = 0; seq.next = t + 0.06;
+    seq.on = true; seq.beat = 0; seq.next = ac.currentTime + 0.06;
     seq.timer = setInterval(scheduler, CFG.LOOKAHEAD_MS);
     scheduler();
   }
+  function stopSeq() { if (seq.on) { seq.on = false; clearInterval(seq.timer); seq.timer = 0; } }
   function stopBGM(fade = 0.35) {
-    if (!seq.on) return;
-    seq.on = false; clearInterval(seq.timer); seq.timer = 0;
+    if (!bgmOn) return;
+    bgmOn = false;
+    stopSeq();
     if (!ac) return;
-    const t = ac.currentTime;
-    bgmBus.gain.cancelScheduledValues(t); bgmBus.gain.setValueAtTime(bgmBus.gain.value, t);
-    bgmBus.gain.linearRampToValueAtTime(0, t + fade);                             // lo ya agendado se apaga con el bus
+    rampBus(0, fade);                                                             // lo ya agendado se apaga con el bus
+    if (piano.src) { try { piano.src.stop(ac.currentTime + fade + 0.05); } catch { /* ya detenido */ } }
   }
 
   // App en segundo plano: suspender (batería y evita ráfagas de notas atrasadas al volver).
   document.addEventListener('visibilitychange', () => {
     if (!ac) return;
     if (document.hidden) ac.suspend();
-    else if (!muted && seq.on) { ac.resume().then(() => { seq.next = Math.max(seq.next, ac.currentTime + 0.05); }); }
+    else if (!muted && bgmOn) { ac.resume().then(() => { if (seq.on) seq.next = Math.max(seq.next, ac.currentTime + 0.05); }); }
   });
 
   // =====================================================================
@@ -325,11 +354,12 @@ window.CU = window.CU || {};
   CU.Audio = {
     CFG, PATTERN,
     preloadAudio,
-    status: () => ({ ...status, voices, armed, bgm: seq.on ? seq.mode : 'apagado', leadIn: { ...leadIn },
+    status: () => ({ ...status, voices, armed, bgm: !bgmOn ? 'apagado' : piano.src ? 'piano' : seq.mode,
+      pianoLoop: piano.src ? { start: piano.src.loopStart, end: piano.src.loopEnd, loop: piano.src.loop } : null, leadIn: { ...leadIn },
       durations: Object.fromEntries(Object.keys(buffers).map((k) => [k, +buffers[k].duration.toFixed(3)])) }),
     startBGM, resumeBGM, stopBGM,
     get usingSynthesizer() { return status.usingSynthesizer; },
-    isPlayingBGM: () => seq.on,
+    isPlayingBGM: () => bgmOn,
     playCaida, playCaidaYLimpia, playPerro,
     unlock() { if (!muted && ensureContext()) resume(); },
     isMuted: () => muted,

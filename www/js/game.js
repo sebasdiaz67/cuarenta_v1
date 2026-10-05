@@ -3,7 +3,7 @@
  * Archivo: js/game.js — Reglas del Cuarenta, IA, máquina de estados, entrada, composición de pantallas y bucle
  * Depende de: config.js → audio.js → draw.js (cargados antes en index.html)
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.4.1
+ * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.5.0
  */
 (function (CU) {
   'use strict';
@@ -684,7 +684,7 @@
     });
     button(BTN.sound, Sfx.isMuted() ? 'Sonido: NO' : 'Sonido: SÍ', false);
     txt('v' + CU.META.version + ' | Desarrollado por ' + CU.META.author, W - 12, 628, 7.5, 'rgba(251,243,228,0.55)', 'right', '500', false);
-    const au = Sfx.status(); txt('Audio: ' + au.mode, W - 12, 612, 7.5, 'rgba(251,243,228,0.55)', 'right', '500', false);
+    const au = Sfx.status(); txt('Audio: ' + au.mode + (au.loaded.includes('piano') ? ' · fondo: piano' : ''), W - 12, 612, 7.5, 'rgba(251,243,228,0.55)', 'right', '500', false);
   }
 
   function render() {

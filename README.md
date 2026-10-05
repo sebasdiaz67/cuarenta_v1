@@ -3,7 +3,7 @@
 El juego de cartas de Quito contra cuatro leyendas de la ciudad, ambientado en las Fiestas de Quito.
 HTML5 Canvas 2D + JavaScript vanilla: **sin dependencias, sin módulos ES, sin archivos de imagen**. Funciona sin conexión y con doble clic (`file://`).
 
-**Versión:** 1.4.1 · **Autor:** Byron Sebastián Rosero Díaz — Ingeniero de Software
+**Versión:** 1.5.0 · **Autor:** Byron Sebastián Rosero Díaz — Ingeniero de Software
 
 ---
 
@@ -128,10 +128,16 @@ preloadAudio() ─ fetch ─► decodeAudioData ─► AudioBuffer (caché)
 | `latigo.mp3` | ✔ 1.10 s | **Caída** (`playCaida`) y caída + limpia |
 | `risa_diablo.mp3` | ✔ 4.01 s | **Caída + limpia** (180 ms después del látigo) y jugadas fuertes de Cantuña |
 | `perro_ladrido.mp3` | ✔ 1.03 s (copia de `tests/fixtures/audio/ladrido.mp3`) | Completar un **perro** (`playPerro`) |
+| `fondo_chulla_piano.mp3` | ✔ 63.03 s · 665 KB (recorte sin recodificar de `chulla_quiteño_piano.mp3`) | **Música de fondo** en bucle cada 1 min 3 s |
 
 El menú indica el modo activo: «Audio: Muestras», «Audio: Mixto (5/6 muestras)» o «Audio: Sintetizado» (`usingSynthesizer = true`: con `file://` o sin bombo).
 
-### Música («Banda de Pueblo Dicembrina»)
+### Música de fondo
+Prioridad: **1) piano** → 2) banda con muestras → 3) pasacalle sintetizado.
+- **Piano:** `fondo_chulla_piano.mp3` en bucle nativo de Web Audio (un solo nodo, sin huecos): repite el tramo desde el fin del silencio inicial (~0.37 s) hasta **63.0 s**, que cae en una pausa natural de la pieza (62.5–63.0 s). Volumen propio (`PIANO_VOL`) porque viene ~11 dB más bajo que los efectos.
+- ⚠️ **Derechos:** «El Chulla Quiteño» es una obra protegida, y la grabación al piano tiene además los derechos de quien la interpretó. Para publicar en Google Play hace falta licencia de la obra (SAYCE en Ecuador) y de la grabación, salvo que sea tuya y tengas la licencia de la composición.
+
+#### Respaldo: «Banda de Pueblo Dicembrina»
 - **Con muestras** (basta el bombo; las voces que falten se sintetizan): bucle a **130 BPM**: 1 bombo · 2 bombo + platillo · 3 bombo · 4 vientos (editable en `PATTERN`).
 - **Sintetizado** (`file://` o sin bombo): pasacalle **original** en 2/4 a 130 BPM (La menor armónica → Do mayor → dominante, 16 compases): vientos con ondas cuadradas filtradas, bajo con ondas triangulares, banda a contratiempo y percusión. **No es «El Chulla Quiteño»**: esa obra está protegida.
 - Se detiene en la pantalla final y vuelve con «Revancha» o «Menú».
@@ -214,14 +220,14 @@ Orden de carga obligatorio: `config.js` → `audio.js` → `draw.js` → `game.j
 |---|---|
 | `CU.RULES` | `WIN_POINTS` (40), `CAIDA`, `LIMPIA`, `RONDA` (2), `CUATRO_IGUALES_GANA`, `ESCALERA_TRAS_SUMA`, `CAIDA_ENTRE_REPARTOS`, `CARTON_MIN` (20), `CARTON_BASE` (6), `CARTON_REDONDEO_PAR`, `REGLA_38`, `CARTON_BLOQUEO_30` (variante, desactivada), `SOBRANTES_AL_ULTIMO`, `DOS_POR_DAR` |
 | `CU.CFG` | Tamaños de carta, tiempos de animación (`ANIM_PLAY`, `ANIM_DEAL`, `CARD_EASE`, `CARD_TILT`…), pausa de la IA, cantidad de diablillos (`IMPS`) |
-| `CU_AUDIO.CFG` | Carpeta y extensión de las muestras (`EXT: 'mp3'`), umbral de silencio inicial (`LEAD_IN_DB`), BPM, volúmenes, tope de voces |
+| `CU_AUDIO.CFG` | Duración del bucle del piano (`PIANO_LOOP_END: 63`) y su volumen (`PIANO_VOL`), carpeta y extensión de las muestras (`EXT: 'mp3'`), umbral de silencio inicial (`LEAD_IN_DB`), BPM, volúmenes, tope de voces |
 | `CU_AUDIO.PATTERN` | Patrón del bucle de banda |
 
 ## Pruebas
 ```
 npm i -D playwright && npx playwright install chromium
 node tests/smoke.mjs   # 62 comprobaciones (file://, audio sintetizado)
-node tests/audio.mjs   # 15 comprobaciones (HTTP, con los MP3 reales de www/audio/)
+node tests/audio.mjs   # 21 comprobaciones (HTTP, con los MP3 reales de www/audio/)
 ```
 Cubren:
 - Reglas: baraja, nomenclatura J/Q/K, igual, suma, escalera, figuras que no suman, caída, limpia, regla de 38, ronda, cartón y dos por dar.
@@ -246,6 +252,6 @@ Donde las fuentes difieren, la opción quedó configurable en `CU.RULES`.
 
 **Arte y música:** diseño procedural original. No reproduce barajas comerciales ni canciones protegidas.
 
-**Cuarenta: El Juicio de las Leyendas** · v1.4.1
+**Cuarenta: El Juicio de las Leyendas** · v1.5.0
 Byron Sebastián Rosero Díaz — Ingeniero de Software
 © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. Software propietario: ver [`LICENSE`](LICENSE).

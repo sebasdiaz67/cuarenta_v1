@@ -36,3 +36,9 @@
 - Música armada solo al pulsar «Jugar» (`startBGM`); `resumeBGM` para revancha, menú y sonido.
 - Polifonía: robo de la voz más vieja en lugar de descartar el sonido nuevo.
 - [x] `tests/audio.mjs` 15/15 con los MP3 reales · `tests/smoke.mjs` 53/53.
+
+## v1.5.0 — Fondo de piano
+- `fondo_chulla_piano.mp3` (63.03 s) como música de fondo con `loop` nativo: `loopStart` = fin del silencio inicial, `loopEnd` = 63.0 s (pausa natural 62.5–63.0 s).
+- Prioridad del fondo: piano → banda con muestras → sintetizado. Cambio en caliente si el piano termina de cargar con la banda sonando.
+- ⚠️ Pendiente: licencia de la obra y de la grabación.
+- [x] `tests/audio.mjs` 21/21 (piano en bucle a 63 s, stop/resume, respaldo de banda con el piano bloqueado).
