@@ -1,7 +1,7 @@
 # STATUS — cuarenta
 
 **Última actualización:** 2026-10-04
-**Estado general:** v1.7.0 — Juego completo contra 4 leyendas + modo online 1 contra 1 con servidor autoritativo (probado en local). Sin desplegar ni empaquetar.
+**Estado general:** v1.8.0 — Juego completo contra 4 leyendas + modo online 1 contra 1 con servidor autoritativo (probado en local). Sin desplegar ni empaquetar.
 
 ## Features
 | Spec | Estado | Notas |
@@ -9,6 +9,7 @@
 | [001-motor-y-reglas](specs/001-motor-y-reglas/spec.md) | Implementada | Smoke 31/31 |
 | [002-arte-musica-dinamismo](specs/002-arte-musica-dinamismo/spec.md) | Implementada | Smoke 37/37 · render p95 2.5 ms (CPU ×4) |
 | [003-arte-cartoon](specs/003-arte-cartoon/spec.md) | Implementada | Smoke 39/39 · perros y tantos en el marcador |
+| [007-reglas-del-manual](specs/007-reglas-del-manual/spec.md) | Implementada | smoke 80/80 · partida a 2 de 3 chicas |
 | [006-fondo-quito-victoria](specs/006-fondo-quito-victoria/spec.md) | Implementada | smoke 70/70 · render p95 1.8 ms |
 | [005-multijugador-online](specs/005-multijugador-online/spec.md) | Implementada (local) | match 15/15 · online E2E 15/15 |
 | [004-audio-muestras](specs/004-audio-muestras/spec.md) | Implementada · falta 1 muestra | audio 15/15 (MP3 reales) · smoke 53/53 |
@@ -24,7 +25,6 @@
 - Elegir hosting para el servidor online (Render, Railway, VPS…).
 - **Licencia del fondo «El Chulla Quiteño» (obra y grabación)** antes de publicar en Google Play.
 - Sacar `chulla_quiteño_piano.mp3` de `www/audio/` (no se usa; se empaquetaría).
-- Confirmar si se permite caída sobre la última carta de la mano anterior (`CAIDA_ENTRE_REPARTOS`, hoy `false`).
 - Confirmar si tras una suma se continúa la escalera hacia las figuras (7 → J → Q → K) o no (`ESCALERA_TRAS_SUMA`).
 - Conseguir `vientos_pasacalle.mp3` y registrar la licencia de los 5 MP3 en `www/audio/LEEME.md`.
 - Escuchar el pasacalle y decidir si el tempo/instrumentación convence.
@@ -45,3 +45,5 @@
 - 2026-10-05 — v1.5.0: fondo de piano (recorte de 63 s, bucle nativo, prioridad sobre la banda). Audio 21/21, smoke 62/62.
 - 2026-10-05 — v1.6.0: modo online (rules.js compartido, server/match.js autoritativo, server.js Express+Socket.io, net.js + submenú), menú principal con dos modos, cuatro iguales sube a 40. match 15/15, online 15/15, smoke 66/66, audio 21/21.
 - 2026-10-05 — v1.7.0: fondo del Centro Histórico (San Francisco, Panecillo y Virgen) fundido con el paño; cartel de victoria con canelazos, confeti y la frase «¡Qué bien chullita…!». Smoke 70/70, match 15/15, audio 21/21, online 15/15.
+- 2026-10-05 — v1.7.1: sonido barajear.mp3 al empezar cada reparto (el usuario lo reemplazó luego por una versión de 0.70 s).
+- 2026-10-05 — v1.8.0: reglas alineadas con el manual (docs/40.Rules.es.pdf): 2 de 3 chicas, escalera solo desde la igual, ronda > 30 bloqueada, sobrantes retiradas, dos por dar al siguiente, dos por falla, 4 caídas seguidas, zapatería. Smoke 80/80, match 15/15, online 16/16, audio 23/23.

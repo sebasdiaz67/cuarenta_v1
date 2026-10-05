@@ -2,7 +2,7 @@
  * Cuarenta: El Juicio de las Leyendas
  * Archivo: js/rules.js — Reglas del Cuarenta como funciones puras, compartidas por el cliente y el servidor
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.7.0
+ * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.8.0
  */
 /*
  * Un solo archivo de reglas para:
@@ -98,7 +98,8 @@
       const max = Math.max(...Object.values(count));
       if (max >= 4 && R.CUATRO_IGUALES_GANA) return { type: 'cuatro', points: 0 };
       if (max === 3) {
-        const blocked = R.REGLA_38 && score === 38;
+        // Manual §9: quien supera 30 puntos ya no cobra ronda · §11: con 38 tampoco.
+        const blocked = (R.REGLA_38 && score === 38) || score > R.RONDA_MAX_SCORE;
         return { type: 'ronda', points: blocked ? 0 : R.RONDA, blocked };
       }
       return null;
@@ -110,16 +111,33 @@
       if (R.CARTON_REDONDEO_PAR && p % 2) p++;
       return p;
     },
+    // Conteo (manual §10). dealerIsA = A repartió ESTE mazo; el siguiente reparte B.
+    //  A) más cartas y al menos 20 → cartón · B) empate → «dos por dar» a quien reparte a continuación
+    //  C) «dos por falla»: quien no levantó ni una carta da 2 puntos al rival · §11: con 38 no suma nada.
     carton(nA, nB, scoreA, scoreB, dealerIsA) {
       const blocked = (s) => (R.REGLA_38 && s === 38) || (R.CARTON_BLOQUEO_30 && s >= 30);
-      if (nA === nB) {
-        const s = dealerIsA ? scoreA : scoreB;
-        return { a: dealerIsA && !blocked(s) ? R.DOS_POR_DAR : 0, b: !dealerIsA && !blocked(s) ? R.DOS_POR_DAR : 0, tie: true };
+      const res = { a: 0, b: 0, tie: nA === nB, dosPorDar: null, carton: null, falla: null };
+      if (res.tie) {
+        const nextIsA = !dealerIsA;
+        if (nextIsA ? !blocked(scoreA) : !blocked(scoreB)) { res[nextIsA ? 'a' : 'b'] += R.DOS_POR_DAR; res.dosPorDar = nextIsA ? 'a' : 'b'; }
+      } else {
+        const aWins = nA > nB, pts = Rules.cartonPoints(aWins ? nA : nB);
+        if (pts && !blocked(aWins ? scoreA : scoreB)) { res[aWins ? 'a' : 'b'] += pts; res.carton = aWins ? 'a' : 'b'; }
       }
-      const aWins = nA > nB;
-      const pts = Rules.cartonPoints(aWins ? nA : nB);
-      return { a: aWins && !blocked(scoreA) ? pts : 0, b: !aWins && !blocked(scoreB) ? pts : 0, tie: false };
+      if (R.DOS_POR_FALLA) {
+        if (nB === 0 && nA > 0 && !blocked(scoreA)) { res.a += R.DOS_POR_FALLA; res.falla = 'b'; }
+        if (nA === 0 && nB > 0 && !blocked(scoreB)) { res.b += R.DOS_POR_FALLA; res.falla = 'a'; }
+      }
+      return res;
     },
+    // Manual §15B: 4 caídas seguidas ganan la chica. streak = [n0, n1] (se modifica).
+    // Seguidas = en turnos consecutivos del mismo jugador; se corta si no hace caída o si el rival le hace una.
+    caidaStreak(streak, p, caida) {
+      if (caida) { streak[p]++; streak[1 - p] = 0; } else streak[p] = 0;
+      return R.CAIDAS_SEGUIDAS > 0 && streak[p] >= R.CAIDAS_SEGUIDAS;
+    },
+    // Manual §16: zapatería = terminar la chica con menos de 10 puntos.
+    zapateria(score) { return score < R.ZAPATERIA_MENOS_DE; },
   };
   CU.Rules = Rules;
 

@@ -74,10 +74,23 @@ const rules = await page.evaluate(() => {
   out.validaSumaConJ = R.validateSuma(card('7'), [card('3'), card('4'), card('J')]);
   out.validaSuma34 = R.validateSuma(card('7'), [card('3'), card('4')]);
   out.figuraNoSumaFiguras = [R.validateSuma(card('K'), [card('J'), card('Q')]), R.findCapture(card('K'), [card('J'), card('Q', 'espada')])];
-  const esc = CU.RULES.ESCALERA_TRAS_SUMA; CU.RULES.ESCALERA_TRAS_SUMA = false;
-  out.sumaPuraSinJ = ids(R.findCapture(card('7'), [card('3'), card('4'), card('J')]));
-  CU.RULES.ESCALERA_TRAS_SUMA = esc;
+  out.sumaPuraSinJ = ids(R.findCapture(card('7'), [card('3'), card('4'), card('J')]));      // manual §5C (por defecto)
+  const esc = CU.RULES.ESCALERA_TRAS_SUMA; CU.RULES.ESCALERA_TRAS_SUMA = true;              // variante regional
   out.sumaLuegoEscalera = ids(R.findCapture(card('7'), [card('3'), card('4'), card('J')]));
+  out.sumaEscaleraVariante = ids(R.findCapture(card('7'), [card('3'), card('4'), card('J'), card('Q')]));
+  CU.RULES.ESCALERA_TRAS_SUMA = esc;
+  // --- manual §9, §10, §15B, §16
+  const tres = [card('3'), card('3', 'espada'), card('3', 'basilica'), card('K'), card('A')];
+  out.ronda30 = [R.checkRonda(tres, 30).points, R.checkRonda(tres, 31).points, R.checkRonda(tres, 32).points].join();
+  out.dosPorDarSig = [R.carton(20, 20, 10, 10, true), R.carton(18, 18, 10, 10, false)].map((x) => `${x.a}/${x.b}/${x.dosPorDar}`).join(' ');
+  out.falla = R.carton(22, 0, 10, 10, true);
+  out.falla38 = R.carton(22, 0, 38, 10, true);
+  const st = [0, 0], seq = [true, true, true].map((c) => R.caidaStreak(st, 0, c));
+  out.racha = { tres: seq.join(), cuarta: R.caidaStreak(st, 0, true) };
+  const st2 = [3, 0]; R.caidaStreak(st2, 1, true); out.rachaCortada = st2.join();
+  const st3 = [3, 0]; R.caidaStreak(st3, 0, false); out.rachaSinCaida = st3.join();
+  out.zap = [R.zapateria(8), R.zapateria(10)].join();
+  out.defaults = { escalera: CU.RULES.ESCALERA_TRAS_SUMA, sobrantes: CU.RULES.SOBRANTES_AL_ULTIMO, chicas: CU.RULES.CHICAS_PARA_GANAR };
   out.markers = [0, 2, 8, 10, 24, 38, 40].map((n) => { const m = CU.Draw.markers(n); return m.perros + '/' + m.tantos; }).join(' ');
   out.cartonReparto = R.carton(24, 16, 10, 10, true);
   out.empate = R.carton(20, 20, 10, 10, false);
@@ -94,8 +107,15 @@ check('K solo captura K por emparejamiento', rules.kSoloK[0] === 'K' && rules.kS
 check('bestSum() ignora figuras aunque se las pasen', rules.bestSumConFigura === '3,4', rules.bestSumConFigura);
 check('validateSuma(): 7 = 3+4 sí; 3+4+J no', rules.validaSuma34 === true && rules.validaSumaConJ === false);
 check('Las figuras no suman entre sí (K ≠ J+Q)', rules.figuraNoSumaFiguras[0] === false && rules.figuraNoSumaFiguras[1] === null);
-check('Suma pura: 7 sobre 3, 4, J levanta solo 3+4', rules.sumaPuraSinJ === '3,4', rules.sumaPuraSinJ);
-check('Con ESCALERA_TRAS_SUMA la J entra por escalera, no por suma', rules.sumaLuegoEscalera === '3,4,J', rules.sumaLuegoEscalera);
+check('§5C: tras una suma NO se sigue la escalera (7 sobre 3, 4, J → 3+4)', rules.sumaPuraSinJ === '3,4', rules.sumaPuraSinJ);
+check('Variante ESCALERA_TRAS_SUMA: la J entra por escalera, no por suma', rules.sumaLuegoEscalera === '3,4,J' && rules.sumaEscaleraVariante === '3,4,J,Q', rules.sumaLuegoEscalera + ' | ' + rules.sumaEscaleraVariante);
+check('§9: con más de 30 puntos no hay ronda (30 sí, 31 y 32 no)', rules.ronda30 === '2,0,0', rules.ronda30);
+check('§10B: «dos por dar» a quien reparte a continuación (también con empates bajo 20)', rules.dosPorDarSig === '0/2/b 2/0/a', rules.dosPorDarSig);
+check('§10C: «dos por falla» se suma al cartón (22 vs 0 → 8 + 2)', rules.falla.a === 10 && rules.falla.falla === 'b' && rules.falla38.a === 0, JSON.stringify(rules.falla));
+check('§15B: la 4.ª caída seguida gana la chica', rules.racha.tres === 'false,false,false' && rules.racha.cuarta === true, JSON.stringify(rules.racha));
+check('§15B: la racha se corta si el rival hace caída o si no haces caída', rules.rachaCortada === '0,1' && rules.rachaSinCaida === '0,0', rules.rachaCortada + ' | ' + rules.rachaSinCaida);
+check('§16: zapatería con menos de 10 puntos', rules.zap === 'true,false', rules.zap);
+check('Valores por defecto según el manual (sin escalera tras suma, sobrantes retiradas, 2 de 3 chicas)', !rules.defaults.escalera && !rules.defaults.sobrantes && rules.defaults.chicas === 2, JSON.stringify(rules.defaults));
 check('BUG caída: A propio + escalera sobre el 2 del rival NO es caída (solo limpia, 2 pts)', rules.caidaBug.taken === 'A,2' && rules.caidaBug.caida === false && rules.caidaBug.limpia && rules.caidaBug.pts === 2, JSON.stringify(rules.caidaBug));
 check('Caída válida: igual a la carta que el rival acaba de lanzar', rules.caidaValida === true);
 check('Caída + escalera desde la carta del rival sigue siendo caída', rules.caidaYEscalera === true);
@@ -108,7 +128,7 @@ check('Escalera ascendente desde la carta igual', rules.escalera === '4,5,6', ru
 check('La escalera se corta si falta una carta', rules.escaleraCorta === '6', rules.escaleraCorta);
 check('Escalera 7 → Sota → Caballo → Rey', rules.escaleraFiguras === '7,J,K,Q', rules.escaleraFiguras);
 check('Suma 3 + 4 = 7', rules.suma === '3,4', rules.suma);
-check('Suma y luego escalera (3+4=7, Sota, Caballo)', rules.sumaEscalera === '3,4,J,Q', rules.sumaEscalera);
+check('Suma sin escalera: 7 sobre 3, 4, J, Q → 3+4', rules.sumaEscalera === '3,4', rules.sumaEscalera);
 check('Las figuras no suman', rules.figuraNoSuma === null);
 check('Sin coincidencia la carta queda en la mesa', rules.nada === null);
 check('Caída: levantar la carta recién jugada por el rival', rules.caida.caida === true && rules.caida.limpia === false);
@@ -120,7 +140,7 @@ check('Ronda no vale con 38', rules.ronda38.points === 0);
 check('Cuatro iguales gana la chica', rules.cuatro.type === 'cuatro');
 check('Cartón: 20→6, 21/22→8, 23/24→10, 30→16', JSON.stringify(rules.carton) === JSON.stringify([0, 6, 8, 8, 10, 10, 16]), JSON.stringify(rules.carton));
 check('Cartón al que tiene más cartas', rules.cartonReparto.a === 10 && rules.cartonReparto.b === 0);
-check('Empate 20–20: dos por dar al que repartió', rules.empate.b === 2 && rules.empate.a === 0 && rules.empate.tie);
+check('Empate 20–20: dos por dar a quien reparte a continuación', rules.empate.a === 2 && rules.empate.b === 0 && rules.empate.tie, JSON.stringify(rules.empate));
 check('Cartón no suma con 38', rules.carton38.a === 0);
 
 // ---------- Partida real desde el menú ----------
@@ -244,16 +264,28 @@ await wait(1000); await shot('04_final');
 const vic = await page.evaluate(async () => {
   const d = CU._debug, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const out = { fondo: CU.CFG.FONDO, frase: CU.TEXT.victoriaFrase };
-  d.newGame(0); await sleep(200); d.game.p.score = 40; d.checkWin(); await sleep(300);
-  out.gana = { s: d.state, fiesta: CU.Draw.Victory.isOn() };
+  // chica 1 → pantalla de fin de chica y la partida sigue
+  d.newGame(0); await sleep(200); d.game.a.score = 6; d.game.p.score = 40; d.checkWin(); await sleep(100);
+  out.chica1 = { s: d.state, chicas: { ...d.game.chicas }, zap: d.game.chicaResult.zap === d.game.a, fiesta: CU.Draw.Victory.isOn() };
+  for (let i = 0; i < 5; i++) d.render();
+  const hold = CU.CFG.CHICA_HOLD; CU.CFG.CHICA_HOLD = 0.2;
+  while (d.state === 'FIN_CHICA') await sleep(30);
+  CU.CFG.CHICA_HOLD = hold;
+  out.chica2 = { s: d.state, p: d.game.p.score, a: d.game.a.score, chicaNo: d.game.chicaNo, hands: d.game.p.hand.length };
+  // chica 2 ganada → partida terminada con cartel
+  d.game.p.score = 40; d.checkWin(); await sleep(300);
+  out.gana = { s: d.state, fiesta: CU.Draw.Victory.isOn(), chicas: { ...d.game.chicas } };
   for (let i = 0; i < 20; i++) d.render();                                 // dibuja el cartel sin errores
-  d.newGame(0); await sleep(200); d.game.a.score = 40; d.checkWin(); await sleep(200);
+  d.newGame(0); await sleep(200); d.game.chicas.a = 1; d.game.a.score = 40; d.checkWin(); await sleep(200);
   out.pierde = { s: d.state, fiesta: CU.Draw.Victory.isOn() };
   return out;
 });
 check('Fondo del Centro Histórico activo (CFG.FONDO = quito)', vic.fondo === 'quito');
 check('Frase de victoria literal', vic.frase === '¡Qué bien chullita, tómate un canelazo por haber ganado!', vic.frase);
-check('Victoria del jugador → cartel con confeti y canelazos', vic.gana.s === 'JUEGO_TERMINADO' && vic.gana.fiesta, JSON.stringify(vic.gana));
+check('§2: ganar la 1.ª chica no termina la partida (FIN_CHICA, 1–0, sin confeti)', vic.chica1.s === 'FIN_CHICA' && vic.chica1.chicas.p === 1 && !vic.chica1.fiesta, JSON.stringify(vic.chica1));
+check('§16: zapatería al rival que terminó la chica con 6 puntos', vic.chica1.zap === true);
+check('La 2.ª chica empieza en 0–0 con mano nueva', vic.chica2.p === 0 && vic.chica2.a === 0 && vic.chica2.chicaNo === 2 && vic.chica2.s !== 'FIN_CHICA', JSON.stringify(vic.chica2));
+check('Victoria (2 chicas) → cartel con confeti y canelazos', vic.gana.s === 'JUEGO_TERMINADO' && vic.gana.fiesta && vic.gana.chicas.p === 2, JSON.stringify(vic.gana));
 check('Derrota → sin confeti', vic.pierde.s === 'JUEGO_TERMINADO' && !vic.pierde.fiesta, JSON.stringify(vic.pierde));
 
 // ---------- rendimiento: costo de render con CPU 4× más lenta (gama baja) y pool lleno ----------

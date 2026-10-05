@@ -2,7 +2,7 @@
  * Cuarenta: El Juicio de las Leyendas
  * Archivo: server/match.js — Árbitro autoritativo de una partida online (1 contra 1)
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.7.0
+ * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.8.0
  */
 /*
  * El servidor es la ÚNICA fuente de verdad:
@@ -16,8 +16,9 @@
  *   ronda    { who:'you'|'rival', kind:'ronda'|'cuatro', points, scores }
  *   turn     { yourTurn }
  *   played   { by, card, capture:{ kind, taken:[ids] }|null, points, caida, limpia, limpiaAnulada, scores }
- *   carton   { you, rival, add:{ you, rival }, tie, sobrantes:[ids], sobrantesTo, scores }
- *   gameOver { winner:'you'|'rival', reason, scores }
+ *   carton   { you, rival, add:{ you, rival }, tie, dosPorDar, falla, sobrantes:[ids], sobrantesTo, scores }
+ *   chicaOver{ winner, reason, scores, chicas:{ you, rival }, zapateria:'you'|'rival'|null }   (sigue otra chica)
+ *   gameOver { winner, reason, scores, chicas, zapateria }                                     (partida a 2 de 3)
  */
 'use strict';
 const crypto = require('node:crypto');
@@ -33,7 +34,9 @@ class Match {
   constructor({ onEvent, rnd = secureRandom }) {
     this.onEvent = onEvent;
     this.rnd = rnd;
-    this.players = [0, 1].map(() => ({ hand: [], pile: [], score: 0 }));
+    this.players = [0, 1].map(() => ({ hand: [], pile: [], score: 0, chicas: 0 }));
+    this.streak = [0, 0];                                            // caídas seguidas (manual §15B)
+    this.chicaNo = 1;
     this.byId = new Map(Rules.makeDeck().map((c) => [c.id, c]));
     this.deck = []; this.table = [];
     this.dealer = this.rnd() < 0.5 ? 0 : 1;
@@ -44,6 +47,7 @@ class Match {
 
   // ------------------------------------------------------------------ utilidades
   scores(p) { return { you: this.players[p].score, rival: this.players[1 - p].score }; }
+  chicas(p) { return { you: this.players[p].chicas, rival: this.players[1 - p].chicas }; }
   who(p, target) { return p === target ? 'you' : 'rival'; }
   send(p, e) { this.onEvent(p, e); }
   both(build) { for (const p of [0, 1]) this.send(p, build(p)); }
@@ -113,6 +117,10 @@ class Match {
       capture: cap ? { kind: cap.kind, taken: this.ids(cap.taken) } : null,
       points: pts.points, caida: !!pts.caida, limpia: !!pts.limpia, limpiaAnulada: !!pts.limpiaAnulada, scores: this.scores(q),
     }));
+    if (Rules.caidaStreak(this.streak, p, !!pts.caida)) {             // 4 caídas seguidas: gana la chica
+      me.score = Math.max(me.score, R.WIN_POINTS);
+      this.finish(p, 'caidas'); return { ok: true };
+    }
     if (this.checkWin()) return { ok: true };
     if (this.players[0].hand.length === 0 && this.players[1].hand.length === 0) {
       if (this.deck.length) this.deal(); else this.carton();
@@ -132,6 +140,9 @@ class Match {
     this.both((q) => ({
       type: 'carton', you: this.players[q].pile.length, rival: this.players[1 - q].pile.length,
       add: q === 0 ? { you: res.a, rival: res.b } : { you: res.b, rival: res.a }, tie: res.tie,
+      dosPorDar: res.dosPorDar && this.who(q, res.dosPorDar === 'a' ? 0 : 1),
+      cartonTo: res.carton && this.who(q, res.carton === 'a' ? 0 : 1),
+      falla: res.falla && this.who(q, res.falla === 'a' ? 0 : 1),
       sobrantes: this.ids(sobrantes), sobrantesTo: to === null ? null : this.who(q, to), scores: this.scores(q),
     }));
     if (!this.checkWin()) this.newDeck();
@@ -144,9 +155,25 @@ class Match {
     return true;
   }
 
+  // Fin de una chica: si alguien llegó a 2 chicas termina la partida; si no, empieza la siguiente.
   finish(p, reason) {
-    this.over = true; this.winner = p; this.turn = null;
-    this.both((q) => ({ type: 'gameOver', winner: this.who(q, p), reason, scores: this.scores(q) }));
+    this.turn = null;
+    this.players[p].chicas++;
+    const zap = this.players.findIndex((pl, i) => i !== p && Rules.zapateria(pl.score));
+    const over = this.players[p].chicas >= R.CHICAS_PARA_GANAR;
+    if (over) { this.over = true; this.winner = p; }
+    this.both((q) => ({
+      type: over ? 'gameOver' : 'chicaOver', winner: this.who(q, p), reason, scores: this.scores(q),
+      chicas: this.chicas(q), zapateria: zap < 0 ? null : this.who(q, zap),
+    }));
+    if (!over) this.newChica();
+  }
+
+  newChica() {
+    this.chicaNo++;
+    this.players.forEach((pl) => { pl.score = 0; pl.hand = []; });
+    this.streak = [0, 0];
+    this.newDeck();                                                // el que da sigue alternándose
   }
 
   /** Para pruebas: total de cartas en juego (debe ser siempre 40). */

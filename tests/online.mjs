@@ -44,7 +44,7 @@ check('Unirse a Mesa → ambos entran a la partida y el submenú se cierra', awa
 check('La música arranca al empezar la partida online', await A.evaluate(() => CU_AUDIO.isPlayingBGM()) && await B.evaluate(() => CU_AUDIO.isPlayingBGM()));
 
 // ---------- partida completa ----------
-const fast = { ANIM_PLAY: 0.05, ANIM_DEAL: 0.03, ANIM_CAPTURE: 0.05, DEAL_GAP: 0.005, HIGHLIGHT: 0.05, COUNT_STEP: 0.003, CARTON_HOLD: 0.15 };
+const fast = { CHICA_HOLD: 0.3, ANIM_PLAY: 0.05, ANIM_DEAL: 0.03, ANIM_CAPTURE: 0.05, DEAL_GAP: 0.005, HIGHLIGHT: 0.05, COUNT_STEP: 0.003, CARTON_HOLD: 0.15 };
 await Promise.all([A, B].map((p) => p.evaluate((f) => Object.assign(CU.CFG, f), fast)));
 const inspect = (p) => p.evaluate(() => {
   const d = CU._debug, G = d.game;
@@ -54,7 +54,7 @@ const inspect = (p) => p.evaluate(() => {
 });
 let plays = 0, badTotal = [], leaks = 0, sawRivalWait = false, shotTaken = false;
 const t0 = Date.now();
-while (Date.now() - t0 < 240000) {
+while (Date.now() - t0 < 420000) {
   const [a, b] = await Promise.all([inspect(A), inspect(B)]);
   for (const [n, x] of [['A', a], ['B', b]]) {
     if (x.idle && x.total !== 40) badTotal.push(`${n}:${x.total}`);
@@ -70,10 +70,11 @@ while (Date.now() - t0 < 240000) {
   }
   await sleep(20);
 }
-const [fa, fb] = await Promise.all([A, B].map((p) => p.evaluate(() => { const G = CU._debug.game; return { s: CU._debug.state, you: G.p.score, rival: G.a.score, won: G.winner === G.p, lost: G.winner === G.a }; })));
+const [fa, fb] = await Promise.all([A, B].map((p) => p.evaluate(() => { const G = CU._debug.game; return { s: CU._debug.state, you: G.p.score, rival: G.a.score, won: G.winner === G.p, lost: G.winner === G.a, cp: G.chicas.p, ca: G.chicas.a }; })));
 check('La partida online llega a JUEGO_TERMINADO en ambos teléfonos', fa.s === 'JUEGO_TERMINADO' && fb.s === 'JUEGO_TERMINADO', JSON.stringify({ fa, fb, plays }));
 check('Marcadores espejo (A.tú = B.rival) y un solo ganador', fa.you === fb.rival && fa.rival === fb.you && fa.won !== fb.won && fa.won === !fa.lost, JSON.stringify({ fa, fb }));
 check('Alguien llegó a 40', Math.max(fa.you, fa.rival) >= 40, `${fa.you}-${fa.rival}`);
+check('Partida a 2 de 3 chicas, chicas espejo en ambos teléfonos', Math.max(fa.cp, fa.ca) === 2 && fa.cp === fb.ca && fa.ca === fb.cp, JSON.stringify({ fa, fb }));
 check('Siempre 40 cartas en cada cliente en reposo', badTotal.length === 0, badTotal.slice(0, 5).join(','));
 check('La mano del rival nunca llega al cliente (solo reversos)', leaks === 0, String(leaks));
 check('Estado TURNO_RIVAL_RED mientras juega el amigo', sawRivalWait);

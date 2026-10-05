@@ -2,7 +2,7 @@
  * Cuarenta: El Juicio de las Leyendas
  * Archivo: js/config.js — Lore de las leyendas, rivales, baraja y reglas
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.7.0
+ * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.8.0
  */
 /* Solo datos: las reglas viven en rules.js y el juego en game.js. Las reglas con variantes regionales se ajustan en CU.RULES. */
 // Funciona en el navegador (window) y en Node (globalThis) para que el servidor online use las mismas reglas.
@@ -12,11 +12,11 @@
 
   CU.META = {
     name: 'Cuarenta: El Juicio de las Leyendas',
-    version: '1.7.0',
+    version: '1.8.0',
     author: 'Byron Sebastián Rosero Díaz',
     role: 'Ingeniero de Software',
     year: 2026,
-    copyright: '© 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.7.0',
+    copyright: '© 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.8.0',
   };
 
   // ------------------------------------------------------------------ motor
@@ -37,6 +37,7 @@
     HIGHLIGHT: 0.45,           // s resaltando lo que se levanta
     COUNT_STEP: 0.045,         // s por carta al contar el cartón
     CARTON_HOLD: 2.2,          // s mostrando el resultado del cartón
+    CHICA_HOLD: 3.2,           // s mostrando el resultado de una chica antes de la siguiente
     IMPS: {                    // diablillos procedurales (solo contra Cantuña y el Diablo)
       AMBIENT_IMPS: 0.6,       // diablillos/s que suben del atrio
       AMBIENT_SPARKS: 4,       // chispas/s
@@ -48,20 +49,26 @@
   // Fuentes: reglamentos publicados (Tabletopia «Reglas del 40», play40.app) y tradición quiteña.
   // Donde las fuentes difieren, la opción queda configurable.
   CU.RULES = {
-    WIN_POINTS: 40,
-    CAIDA: 2,                  // levantar con igual la carta que el rival acaba de jugar
-    LIMPIA: 2,                 // dejar la mesa vacía
-    RONDA: 2,                  // recibir tres cartas iguales
-    CUATRO_IGUALES_GANA: true, // recibir las cuatro iguales gana la chica
-    ESCALERA_TRAS_SUMA: true,  // después de sumar se sigue la escalera desde la carta jugada
-    CAIDA_ENTRE_REPARTOS: false, // false: al repartir una nueva mano se olvida la última carta (no hay caída sobre la mano anterior)
-    CARTON_MIN: 20,            // con 20 cartas: 6 puntos
+    // Fuente principal: manual «Reglas para jugar 40» (docs/40.Rules.es.pdf, §n). Adaptado a 1 contra 1.
+    WIN_POINTS: 40,            // §15: 40 puntos = 4 perros = una chica
+    CHICAS_PARA_GANAR: 2,      // §2/§15: la partida es a 2 de 3 chicas
+    CAIDA: 2,                  // §6: levantar por igual la carta que el rival acaba de jugar
+    LIMPIA: 2,                 // §7: dejar la mesa vacía (§8 caída y limpia = 2 + 2, decisión del usuario)
+    RONDA: 2,                  // §9: recibir tres cartas iguales
+    RONDA_MAX_SCORE: 30,       // §9: quien SUPERA 30 puntos ya no cobra ronda
+    CUATRO_IGUALES_GANA: true, // §15A: recibir las cuatro iguales gana la chica
+    CAIDAS_SEGUIDAS: 4,        // §15B: 4 caídas seguidas ganan la chica (0 = desactivado)
+    ESCALERA_TRAS_SUMA: false, // §5C: la escalera parte de la carta IGUAL; tras una suma no se sigue
+    CAIDA_ENTRE_REPARTOS: false, // false: al repartir una nueva mano se olvida la última carta (decisión del usuario)
+    CARTON_MIN: 20,            // §10A: con 20 cartas: 6 puntos
     CARTON_BASE: 6,
-    CARTON_REDONDEO_PAR: true, // 21–22 cartas → 8; 23–24 → 10…
-    REGLA_38: true,            // con 38 puntos solo cuenta la caída (no limpia, ronda ni cartón)
-    CARTON_BLOQUEO_30: false,  // variante: con 30+ el cartón no suma (desactivada por defecto)
-    SOBRANTES_AL_ULTIMO: true, // cartas que quedan en la mesa al final → último que levantó
-    DOS_POR_DAR: 2,            // empate de cartón: +2 al que repartió
+    CARTON_REDONDEO_PAR: true, // §10A: 21–22 cartas → 8; 23–24 → 10…
+    DOS_POR_DAR: 2,            // §10B: empate de cartas → +2 a quien reparte a continuación
+    DOS_POR_FALLA: 2,          // §10C: quien no levantó ni una carta da +2 al rival
+    REGLA_38: true,            // §11: con 38 solo cuenta la caída (no limpia, ronda ni conteo)
+    SOBRANTES_AL_ULTIMO: false,// §10: el juez RETIRA las sobrantes (true = variante: al último que levantó)
+    CARTON_BLOQUEO_30: false,  // variante regional: con 30+ el conteo no suma (desactivada)
+    ZAPATERIA_MENOS_DE: 10,    // §16: terminar la chica con menos de 10 puntos = zapatería
   };
 
   // ------------------------------------------------------------------ baraja
@@ -185,8 +192,9 @@
     caida: '¡CAÍDA!', limpia: '¡LIMPIA!', ronda: '¡RONDA!', cuatro: '¡CUATRO IGUALES!',
     carton: 'Conteo del cartón', dosPorDar: 'Dos por dar',
     regla38: 'Con 38 solo vale la caída',
-    youWin: '¡Ganaste la chica!', youLose: 'Perdiste la chica',
+    youWin: '¡Ganaste la partida!', youLose: 'Perdiste la partida',
     victoriaFrase: '¡Qué bien chullita, tómate un canelazo por haber ganado!',
-    victoriaTitulo: ['¡GANASTE!', '¡LA CHICA!'],
+    victoriaTitulo: ['¡GANASTE!', '¡LA PARTIDA!'],
+    dosPorFalla: 'Dos por falla', zapateria: '¡Zapatería!', retiradas: 'El juez retira las sobrantes',
   };
 })((typeof window !== 'undefined' ? window : globalThis).CU);

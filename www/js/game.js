@@ -3,7 +3,7 @@
  * Archivo: js/game.js — Reglas del Cuarenta, IA, máquina de estados, entrada, composición de pantallas y bucle
  * Depende de: config.js → rules.js → audio.js → draw.js → net.js (cargados antes en index.html)
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.7.0
+ * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.8.0
  */
 (function (CU) {
   'use strict';
@@ -75,7 +75,9 @@
     REPARTIR_CARTAS: 'REPARTIR_CARTAS', TURNO_JUGADOR: 'TURNO_JUGADOR', TURNO_IA: 'TURNO_IA',
     TURNO_RIVAL_RED: 'TURNO_RIVAL_RED',   // online: congelado esperando la jugada del amigo (evento del servidor)
     ESPERA_RED: 'ESPERA_RED',             // online: entre eventos del servidor
-    VALIDAR_JUGADA: 'VALIDAR_JUGADA', CONTEO_CARTON: 'CONTEO_CARTON', JUEGO_TERMINADO: 'JUEGO_TERMINADO',
+    VALIDAR_JUGADA: 'VALIDAR_JUGADA', CONTEO_CARTON: 'CONTEO_CARTON',
+    FIN_CHICA: 'FIN_CHICA',               // terminó una chica; la partida sigue (a 2 de 3, manual §2)
+    JUEGO_TERMINADO: 'JUEGO_TERMINADO',
   };
   let state = S.MENU, stateTime = 0, simTime = 0, frames = 0;
   let G = null;            // partida
@@ -92,6 +94,7 @@
       a: { name: rival.name, hand: [], pile: [], score: 0 },
       dealerIsP: Math.random() < 0.5, turnP: true, lastPlayedCard: null, lastPlayedBy: null, lastCapturer: null,
       selected: null, play: null, bubble: null, winner: null, carton: null, dealt: 0, deckNo: 0,
+      chicas: { p: 0, a: 0 }, chicaNo: 1, streak: [0, 0], winReason: null, chicaResult: null,
     };
     Imps.clear(); flyers.length = 0;
     say('hello');
@@ -113,6 +116,7 @@
       a: { name: CU.ONLINE_RIVAL.name, hand: [], pile: [], score: 0 },
       dealerIsP: false, turnP: false, lastPlayedCard: null, lastPlayedBy: null, lastCapturer: null,
       selected: null, play: null, bubble: null, winner: null, carton: null, deckNo: 0,
+      chicas: { p: 0, a: 0 }, chicaNo: 1, streak: [0, 0], winReason: null, chicaResult: null,
     };
     netQueue.length = 0; Imps.clear(); flyers.length = 0; fx.length = 0;
     setState(S.ESPERA_RED);
@@ -136,7 +140,7 @@
     switch (e.type) {
       case 'deal': {
         if (e.deckNo !== G.deckNo) {                                       // mazo nuevo
-          G.table = []; G.p.pile = []; G.a.pile = []; G.seen = []; G.lastCapturer = null; G.deckNo = e.deckNo;
+          G.table = []; G.p.pile = []; G.a.pile = []; G.p.hand = []; G.a.hand = []; G.seen = []; G.lastCapturer = null; G.deckNo = e.deckNo;
         }
         if (!R.CAIDA_ENTRE_REPARTOS) clearLastPlayed();
         G.dealerIsP = e.dealerIsYou;
@@ -181,15 +185,23 @@
           for (const c of G.table.filter((c) => e.sobrantes.includes(c.id))) { to.pile.push(c); moveTo(c, pile.x, pile.y, 0.5); c.toPile = true; }
           G.table = G.table.filter((c) => !e.sobrantes.includes(c.id));
         }
-        G.carton = { nP: e.you, nA: e.rival, res: { a: e.add.you, b: e.add.rival, tie: e.tie }, net: e, shownP: 0, shownA: 0, applied: false };
+        const side = (w) => (w === 'you' ? 'a' : w === 'rival' ? 'b' : null);
+        if (!e.sobrantesTo && G.table.length) popup(CU.TEXT.retiradas, W / 2, 200, '#fbf3e4', 12);
+        G.carton = { nP: e.you, nA: e.rival, net: e, shownP: 0, shownA: 0, applied: false,
+          res: { a: e.add.you, b: e.add.rival, tie: e.tie, carton: side(e.cartonTo), dosPorDar: side(e.dosPorDar), falla: side(e.falla) } };
         setState(S.CONTEO_CARTON);
         break;
       }
-      case 'gameOver':
+      case 'chicaOver':
+      case 'gameOver': {
         setScores(e.scores);
-        G.winner = e.winner === 'you' ? G.p : G.a;
-        endGame();
+        const who = whoOf(e.winner);
+        G.chicas = { p: e.chicas.you, a: e.chicas.rival };
+        G.chicaResult = { who, reason: e.reason, zap: e.zapateria ? whoOf(e.zapateria) : null };
+        if (e.reason === 'caidas') popup('¡4 CAÍDAS SEGUIDAS!', W / 2, 300, '#ffe066', 22);
+        if (e.type === 'gameOver') { G.winner = who; endGame(); } else showChica(who);
         break;
+      }
       case 'rivalLeft':
       case 'disconnected':
         if (state === S.JUEGO_TERMINADO) break;
@@ -312,6 +324,7 @@
     const cap = judge(card, other);
     G.seen.push(card);
     if (!cap) {
+      if (!G.play.net) Rules.caidaStreak(G.streak, isP ? 0 : 1, false);   // jugar sin caída corta la racha
       G.table.push(card);
       G.lastPlayedCard = card; G.lastPlayedBy = who;        // se queda en la mesa: el rival puede hacerle caída
       layoutTable();
@@ -327,6 +340,10 @@
     G.play.phase = 'highlight'; G.play.t = 0;
     const before = who.score;
     if (n) setScores(n.scores); else who.score += pts.points;
+    if (!n && Rules.caidaStreak(G.streak, isP ? 0 : 1, !!pts.caida)) {   // manual §15B: 4 caídas seguidas
+      who.score = Math.max(who.score, R.WIN_POINTS); G.winReason = 'caidas';
+      popup('¡4 CAÍDAS SEGUIDAS!', W / 2, (TABLE_TOP + TABLE_BOTTOM) / 2 + 40, '#ffe066', 22);
+    }
     flyPoints(who, before);
     const cx = W / 2, cy = (TABLE_TOP + TABLE_BOTTOM) / 2;
     if (pts.caida && pts.limpia) { popup('¡CAÍDA Y LIMPIA!', cx, cy, '#ffe066', 26); Sfx.playCaidaYLimpia(); }   // látigo + risa
@@ -376,9 +393,29 @@
       if (G.a.score === 38 && !G.said38) { G.said38 = true; say('thirtyEight'); }
       return false;
     }
-    G.winner = pW ? G.p : G.a;
-    endGame();
+    finishChica(pW ? G.p : G.a, G.winReason || 'cuarenta');
     return true;
+  }
+
+  // ------------------------------------------------------------------ chicas (partida a 2 de 3, manual §2/§15)
+  function finishChica(who, reason) {
+    G.chicas[who === G.p ? 'p' : 'a']++;
+    const loser = who === G.p ? G.a : G.p;
+    G.chicaResult = { who, reason, zap: Rules.zapateria(loser.score) ? loser : null };
+    if (G.chicas[who === G.p ? 'p' : 'a'] >= R.CHICAS_PARA_GANAR) { G.winner = who; endGame(); return; }
+    showChica(who);
+  }
+  function showChica(who) {
+    fx.length = 0; flyers.length = 0;
+    G.play = null; G.selected = null;
+    say(who === G.p ? 'lose' : 'win');
+    if (who === G.p) Sfx.ronda(); else Sfx.lose();
+    setState(S.FIN_CHICA);
+  }
+  function nextChica() {                                   // local: nueva chica, mismo rival
+    G.p.score = 0; G.a.score = 0; G.p.hand = []; G.a.hand = []; G.play = null; G.selected = null;
+    G.streak = [0, 0]; G.said38 = false; G.winReason = null; G.chicaNo++;
+    newDeck();
   }
 
   function endGame() {
@@ -404,7 +441,7 @@
       const pile = G.lastCapturer === G.p ? PILE_P : PILE_A;
       for (const c of G.table) { G.lastCapturer.pile.push(c); moveTo(c, pile.x, pile.y, 0.5); c.toPile = true; }
       G.table = [];
-    }
+    } else if (G.table.length) popup(CU.TEXT.retiradas, W / 2, 200, '#fbf3e4', 12);   // §10: no cuentan para nadie
     const nP = G.p.pile.length, nA = G.a.pile.length;
     const res = Rules.carton(nP, nA, G.p.score, G.a.score, G.dealerIsP);
     G.carton = { nP, nA, res, shownP: 0, shownA: 0, applied: false };
@@ -451,7 +488,7 @@
           for (const who of [G.p, G.a]) {
             const r = Rules.checkRonda(who.hand, who.score);
             if (!r) continue;
-            if (r.type === 'cuatro') { popup(CU.TEXT.cuatro, W / 2, 330, '#ffe066', 26); who.score = Math.max(who.score, R.WIN_POINTS); G.winner = who; endGame(); return; }
+            if (r.type === 'cuatro') { popup(CU.TEXT.cuatro, W / 2, 330, '#ffe066', 26); who.score = Math.max(who.score, R.WIN_POINTS); finishChica(who, 'cuatro'); return; }
             const before = who.score;
             who.score += r.points;
             flyPoints(who, before);
@@ -485,6 +522,13 @@
         else if (P.phase === 'highlight' && P.t >= C.HIGHLIGHT) { P.phase = 'collect'; P.t = 0; finishCapture(); }
         else if (P.phase === 'collect' && P.t >= C.ANIM_CAPTURE) { P.phase = 'done'; P.t = 0; }
         else if (P.phase === 'done' && P.t >= 0.12) afterPlay();
+        break;
+      }
+      case S.FIN_CHICA: {
+        if (stateTime > C.CHICA_HOLD) {
+          if (G.online) { G.p.score = 0; G.a.score = 0; setState(S.ESPERA_RED); }   // el servidor ya repartió la siguiente
+          else nextChica();
+        }
         break;
       }
       case S.CONTEO_CARTON: {
@@ -620,6 +664,13 @@
 
   function drawScore(who, x, y, align, label) {
     txt(label, x, y, 11, 'rgba(255,255,255,0.85)', align, '700');
+    // chicas ganadas (partida a 2 de 3): círculos dorados junto a la etiqueta
+    const won = G.chicas[who === G.p ? 'p' : 'a'], dirC = align === 'left' ? 1 : -1, x0 = x + dirC * (align === 'left' ? 24 : 38);
+    for (let i = 0; i < R.CHICAS_PARA_GANAR; i++) {
+      ctx.beginPath(); ctx.arc(x0 + dirC * i * 10, y, 3.6, 0, TAU);
+      if (i < won) { ctx.fillStyle = '#f5c542'; ctx.fill(); }
+      ctx.strokeStyle = 'rgba(245,197,66,0.9)'; ctx.lineWidth = 1.2; ctx.stroke();
+    }
     txt(String(who.score), x, y + 20, 22, who.score >= 38 ? '#ffb3a1' : '#ffe066', align, '900');
     // marcador tradicional: un perro (verde) por cada 10 puntos y un tanto (naranja) por cada 2
     const dir = align === 'left' ? 1 : -1;
@@ -680,8 +731,21 @@
       ctx.globalAlpha = 1;
     }
     if (state === S.CONTEO_CARTON) drawCarton();
+    if (state === S.FIN_CHICA) drawFinChica();
     drawFlyers();
     if (state === S.JUEGO_TERMINADO) drawGameOver(t);
+  }
+
+  function drawFinChica() {
+    const r = G.chicaResult, pWon = r.who === G.p;
+    ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillRect(30, 200, W - 60, 230);
+    ctx.strokeStyle = '#f5c542'; ctx.lineWidth = 1.5; ctx.strokeRect(30.5, 200.5, W - 61, 229);
+    txt(pWon ? '¡Chica para ti!' : 'Chica para ' + G.rival.name, W / 2, 232, 20, pWon ? '#ffe066' : '#ff9f8f');
+    const why = r.reason === 'caidas' ? '4 caídas seguidas' : r.reason === 'cuatro' ? 'Cuatro iguales' : G.p.score + '  –  ' + G.a.score;
+    txt(why, W / 2, 264, 14, '#fff', 'center', '700');
+    txt('Chicas  ' + G.chicas.p + '  –  ' + G.chicas.a, W / 2, 300, 18, '#fff', 'center', '900');
+    if (r.zap) txt(CU.TEXT.zapateria + (r.zap === G.p ? ' Te quedaste con menos de 10' : ' para ' + G.rival.name.split(' ').slice(-1)[0]), W / 2, 336, 12.5, '#ffb3a1', 'center', '800');
+    txt('Siguiente chica…', W / 2, 400, 10, 'rgba(255,255,255,0.7)', 'center', '600', false);
   }
 
   function drawCarton() {
@@ -692,10 +756,12 @@
     txt('Tú: ' + K.shownP + ' cartas', W / 2, 282, 14, '#fff', 'center', '700');
     txt(G.rival.name + ': ' + K.shownA + ' cartas', W / 2, 308, 14, '#fff', 'center', '700');
     if (K.applied) {
-      const r = K.res;
-      const msg = r.tie ? (CU.TEXT.dosPorDar + ': +' + (r.a || r.b) + (r.a ? ' para ti' : ' para el rival'))
-        : r.a ? '¡Cartón para ti! +' + r.a : r.b ? 'Cartón para el rival +' + r.b : 'El cartón no suma (regla de 38)';
-      txt(msg, W / 2, 350, 15, '#ffe066');
+      const r = K.res, lines = [], para = (s) => (s === 'a' ? ' para ti' : ' para ' + G.rival.name.split(' ').slice(-1)[0]);
+      if (r.carton) lines.push((r.carton === 'a' ? '¡Cartón para ti! +' : 'Cartón para el rival +') + Rules.cartonPoints(r.carton === 'a' ? K.nP : K.nA));
+      if (r.dosPorDar) lines.push(CU.TEXT.dosPorDar + ': +' + R.DOS_POR_DAR + para(r.dosPorDar));
+      if (r.falla) lines.push(CU.TEXT.dosPorFalla + ': +' + R.DOS_POR_FALLA + para(r.falla === 'a' ? 'b' : 'a'));
+      if (!lines.length) lines.push(r.tie || Math.max(K.nP, K.nA) >= R.CARTON_MIN ? 'El conteo no suma (regla de 38)' : 'Nadie llegó a 20 cartas');
+      lines.forEach((ln, i) => txt(ln, W / 2, 344 + i * 20, 14, '#ffe066'));
       txt('Nuevo mazo…', W / 2, 390, 10, 'rgba(255,255,255,0.7)', 'center', '600', false);
     }
   }
@@ -704,7 +770,7 @@
     ctx.fillStyle = 'rgba(0,0,0,0.72)'; ctx.fillRect(0, 0, W, H);
     const pWon = G.winner === G.p;
     if (pWon && !G.abandoned) {                                       // victoria del jugador: cartel festivo
-      D.drawVictoryPoster(CU.TEXT.victoriaFrase, G.p.score + '  –  ' + G.a.score, CU.TEXT.victoriaTitulo);
+      D.drawVictoryPoster(CU.TEXT.victoriaFrase, 'Chicas ' + G.chicas.p + ' – ' + G.chicas.a + '   ·   ' + G.p.score + ' – ' + G.a.score, CU.TEXT.victoriaTitulo);
       if (stateTime > 0.8) {
         if (G.online) button(BTN.menuOnline, 'Menú', true);
         else { button(BTN.again, 'Revancha', true); button(BTN.menu, 'Menú', false); }
@@ -715,7 +781,8 @@
     const title = G.abandoned && !G.winner ? 'Partida interrumpida' : pWon ? CU.TEXT.youWin : CU.TEXT.youLose;
     txt(title, W / 2, 320, 26, pWon ? '#ffe066' : G.abandoned && !G.winner ? '#fbf3e4' : '#ff9f8f');
     if (G.abandoned) txt(G.abandoned, W / 2, 392, 12, '#fbf3e4', 'center', '600', false);
-    txt(G.p.score + '  –  ' + G.a.score, W / 2, 356, 20, '#fff');
+    txt(G.p.score + '  –  ' + G.a.score + (G.chicas ? '   ·   chicas ' + G.chicas.p + '–' + G.chicas.a : ''), W / 2, 356, 18, '#fff');
+    if (G.chicaResult && G.chicaResult.zap === G.p) txt(CU.TEXT.zapateria + ' Menos de 10 puntos', W / 2, 376, 12, '#ffb3a1', 'center', '800');
     if (G.bubble) txt('«' + G.bubble.text + '»', W / 2, 392, 12, '#fbf3e4', 'center', '600', false);
     wrapLines(G.rival.legend, 300, '500 9.5px system-ui, sans-serif').slice(0, 3).forEach((ln, i) => txt(ln, W / 2, 410 + i * 14, 9.5, 'rgba(255,255,255,0.75)', 'center', '500', false));
     if (stateTime > 0.8) {

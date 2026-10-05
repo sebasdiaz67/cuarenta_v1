@@ -3,7 +3,7 @@
 El juego de cartas de Quito contra cuatro leyendas de la ciudad, ambientado en las Fiestas de Quito.
 HTML5 Canvas 2D + JavaScript vanilla: **el cliente no tiene dependencias, ni módulos ES, ni archivos de imagen**. Contra la IA funciona sin conexión y con doble clic (`file://`). El modo **online 1 contra 1** usa un servidor Node (`server.js`).
 
-**Versión:** 1.7.0 · **Autor:** Byron Sebastián Rosero Díaz — Ingeniero de Software
+**Versión:** 1.8.0 · **Autor:** Byron Sebastián Rosero Díaz — Ingeniero de Software
 
 ---
 
@@ -28,7 +28,7 @@ HTML5 Canvas 2D + JavaScript vanilla: **el cliente no tiene dependencias, ni mó
 1. En el menú elige una leyenda (las estrellas indican la dificultad).
 2. Primer toque sobre una carta de tu mano: se resalta lo que levantaría y se anuncia si es caída o limpia.
 3. Segundo toque sobre la misma carta: la juegas. En teclado, las teclas **1–5** juegan directamente.
-4. Gana la chica quien llegue primero a **40 puntos**.
+4. Gana la chica quien llegue primero a **40 puntos**; gana la **partida** quien gane **2 de 3 chicas**.
 
 ## Modo online
 Menú principal → **«🤝 Jugar con un Amigo (Online)»** → uno pulsa **Crear Mesa** y comparte el código de 4 dígitos; el otro lo escribe y pulsa **Unirse a Mesa**.
@@ -45,7 +45,8 @@ npm start            # http://localhost:8080 — sirve el juego y el modo online
 - Si el amigo sale o se cae la conexión: «Partida interrumpida» (nadie gana). Aún no hay reconexión.
 
 ## Reglas
-Implementadas en `CU.Rules` (`js/rules.js`), como funciones puras compartidas por el juego local y el servidor online. Las variantes se configuran en `CU.RULES` (`js/config.js`).
+Implementadas en `CU.Rules` (`js/rules.js`), como funciones puras compartidas por el juego local y el servidor online.
+**Fuente principal:** el manual «Reglas para jugar 40» (`docs/40.Rules.es.pdf`, citado como §n), adaptado a 1 contra 1 (cada «pareja» es un jugador; el motor hace de Juez de Aguas). Las variantes se configuran en `CU.RULES` (`js/config.js`).
 
 ### Baraja
 | Concepto | Valor |
@@ -64,14 +65,14 @@ Implementadas en `CU.Rules` (`js/rules.js`), como funciones puras compartidas po
 ### Cómo se levanta (orden de prioridad)
 1. **Por igual:** una carta del mismo valor. Si una de ellas es la que el rival acaba de jugar, se toma esa (para que valga la caída).
 2. **Por suma:** solo si no hubo igual y la carta jugada es As–7. Se busca la combinación de cartas As–7 que sume exactamente su valor (mínimo 2 cartas). Si hay varias, se toma automáticamente la que más cartas levanta.
-3. **Escalera:** después de levantar (por igual, y por suma si `ESCALERA_TRAS_SUMA` está activo), se siguen levantando las cartas consecutivas ascendentes desde la carta jugada: … 6, 7, J, Q, K. Se corta en el primer valor que falte.
+3. **Escalera (§5C):** solo a partir de la carta **igual**: se siguen levantando las consecutivas ascendentes … 6, 7, J, Q, K, hasta el primer valor que falte. Tras una suma **no** se sigue (variante `ESCALERA_TRAS_SUMA`).
 4. Si no levanta nada, la carta se queda en la mesa.
 
 Ejemplos verificados en las pruebas:
 - 5 sobre [5] → levanta el 5.
 - 4 sobre [4, 5, 6, K] → levanta 4, 5, 6 (falta el 7: la K no entra).
 - 7 sobre [3, 4, K] → levanta 3 + 4.
-- 7 sobre [3, 4, J] → por suma 3 + 4; la J entra **por escalera** (7 → J), no por suma.
+- 7 sobre [3, 4, J] → 3 + 4 (la J no: tras una suma no hay escalera, §5C).
 - K sobre [5, 7] → no levanta. K sobre [J, Q] → no levanta (las figuras no suman).
 
 ### Puntos
@@ -79,16 +80,20 @@ Ejemplos verificados en las pruebas:
 |---|---|---|
 | **Caída** | +2 | Emparejar **por igual** la carta exacta que el rival lanzó en el turno inmediatamente anterior. No cuenta si esa carta solo se levanta por escalera o por suma. |
 | **Limpia** | +2 | Dejar la mesa vacía. Se acumula con la caída (caída y limpia = 4). |
-| **Ronda** | +2 | Recibir tres cartas del mismo valor en el reparto. |
-| **Cuatro iguales** (doble ronda) | gana la chica | Recibir las cuatro del mismo valor: victoria inmediata, el marcador sube a 40. |
+| **Ronda** (§9) | +2 | Recibir tres cartas del mismo valor. No vale si ya tienes **más de 30** puntos. |
+| **Cuatro iguales** (§15A) | gana la chica | Recibir las cuatro del mismo valor: el marcador sube a 40. |
+| **4 caídas seguidas** (§15B) | gana la chica | Caída en 4 turnos tuyos consecutivos; se corta si no haces caída o si el rival te hace una. |
 | **Cartón** | 6 + 1 por carta sobre 20, redondeado a par | Al terminar el mazo, quien tiene más cartas (con 20 o más). 20 → 6, 21–22 → 8, 23–24 → 10, 30 → 16. |
-| **Dos por dar** | +2 | Empate de cartón 20–20: los recibe el que repartió. |
+| **Dos por dar** (§10B) | +2 | Empate en el número de cartas: los recibe quien **reparte a continuación**. |
+| **Dos por falla** (§10C) | +2 | Si el rival no levantó ni una carta en el mazo. |
 
 - **Regla de 38:** con 38 puntos solo vale la caída. No suman la limpia, la ronda ni el cartón. Cuando el rival llega a 38 lo avisa: «¡Treinta y ocho que no juegan!».
 - **Sin caída pendiente:** después de cualquier levantada (incluida la limpia) y al empezar cada mano (`CAIDA_ENTRE_REPARTOS: false`) no hay carta del rival que se pueda «caer».
 - **Ejemplo (bug corregido en v1.4.1):** mesa [A propio, 2 recién lanzado por el rival]; juegas otro A → levantas A y 2 (igual + escalera) y haces limpia (+2), pero **no** caída: emparejaste tu propio As.
-- **Sobrantes:** las cartas que quedan en la mesa al final del mazo son para el último que levantó.
-- **Victoria:** el primero en llegar a 40. La comprobación se hace después de cada jugada, de cada ronda y del cartón.
+- **Sobrantes (§10):** el juez **retira** las cartas que quedan en la mesa al final del mazo; no cuentan para nadie.
+- **Zapatería (§16):** terminar una chica con menos de 10 puntos (es un título, no cambia el marcador).
+- **Partida (§2):** a 2 de 3 chicas; entre chica y chica el marcador vuelve a 0 y las chicas ganadas se ven como círculos dorados junto a «Tú» y «Rival».
+- **Victoria de la chica:** el primero en llegar a 40 (o por cuatro iguales / 4 caídas seguidas). La comprobación se hace después de cada jugada, de cada ronda y del cartón.
 
 ### Marcador: perros y tantos
 El puntaje se muestra con el marcador tradicional en lugar de rayas:
@@ -248,10 +253,10 @@ Orden de carga obligatorio: `config.js` → `rules.js` → `audio.js` → `draw.
 ```
 npm i -D playwright && npx playwright install chromium
 npm test               # las 4 suites
-node tests/smoke.mjs   # 70 comprobaciones (file://, audio sintetizado)
-node tests/audio.mjs   # 21 comprobaciones (HTTP, con los MP3 reales de www/audio/)
+node tests/smoke.mjs   # 80 comprobaciones (file://, audio sintetizado)
+node tests/audio.mjs   # 23 comprobaciones (HTTP, con los MP3 reales de www/audio/)
 node tests/match.mjs   # 15: árbitro (300 partidas) + protocolo Socket.io
-node tests/online.mjs  # 15: dos navegadores reales juegan una partida completa contra server.js
+node tests/online.mjs  # 16: dos navegadores reales juegan una partida completa contra server.js
 ```
 Cubren:
 - Reglas: baraja, nomenclatura J/Q/K, igual, suma, escalera, figuras que no suman, caída, limpia, regla de 38, ronda, cartón y dos por dar.
@@ -264,12 +269,12 @@ Cubren:
 - Desplegar el servidor online con HTTPS y configurar `CU.NET.SERVER_URL` para el APK; reconexión tras caídas de red.
 - Falta `vientos_pasacalle.mp3` (hoy se sintetiza). Confirmar la licencia de uso comercial de los 5 MP3.
 - Pasar retratos y escenarios al estilo cartoon (hoy desentonan con las cartas).
-- Confirmar si después de una suma se sigue la escalera hacia las figuras (`ESCALERA_TRAS_SUMA`).
 - Probar en un celular real: legibilidad de las figuras en la mesa (50×72) y dificultad de Cantuña, que gana la mayoría de las partidas simuladas.
 - Elegir qué suma levantar cuando hay varias (hoy es automático).
 
 ## Fuentes y autoría
 **Reglas:**
+- Manual «Reglas para jugar 40» (`docs/40.Rules.es.pdf`) — fuente principal desde v1.8.0
 - Tabletopia — «Reglas del 40»: https://c.tabletopia.com/games/cuarenta/rules/reglas-del-40/es
 - play40.app — Reglas del Cuarenta: https://play40.app/rules
 
@@ -277,6 +282,6 @@ Donde las fuentes difieren, la opción quedó configurable en `CU.RULES`.
 
 **Arte y música:** diseño procedural original. No reproduce barajas comerciales ni canciones protegidas.
 
-**Cuarenta: El Juicio de las Leyendas** · v1.7.0
+**Cuarenta: El Juicio de las Leyendas** · v1.8.0
 Byron Sebastián Rosero Díaz — Ingeniero de Software
 © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. Software propietario: ver [`LICENSE`](LICENSE).

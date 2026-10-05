@@ -11,12 +11,12 @@ const results = [];
 const check = (name, ok, detail = '') => results.push({ name, ok, detail });
 
 // ---------- 1. Árbitro: 300 partidas aleatorias ----------
-let bad = [], plays = 0, cuatro = 0;
+let bad = [], plays = 0, cuatro = 0; const reasons = {};
 for (let g = 0; g < 300; g++) {
   const seen = [[], []];
   const m = new Match({ onEvent: (p, e) => seen[p].push(e) });
   m.start(); let guard = 0;
-  while (!m.over && guard++ < 500) {
+  while (!m.over && guard++ < 3000) {
     const p = m.turn;
     if (m.play(1 - p, m.players[1 - p].hand[0]?.id || 'x').ok) bad.push('aceptó fuera de turno');
     if (m.play(p, 'oro-Z').ok) bad.push('aceptó carta inexistente');
@@ -26,6 +26,10 @@ for (let g = 0; g < 300; g++) {
     if (m.cardCount() !== 40) bad.push('cartas ' + m.cardCount());
   }
   if (!m.over) bad.push('no terminó');
+  for (const e of seen[0]) if (e.type === 'chicaOver' || e.type === 'gameOver') reasons[e.reason] = (reasons[e.reason] || 0) + 1;
+  const fin = seen[0].at(-1);
+  if (fin.type !== 'gameOver' || Math.max(fin.chicas.you, fin.chicas.rival) !== 2) bad.push('partida no termina a 2 chicas');
+  if (seen[0].filter((e) => e.type === 'chicaOver').length !== fin.chicas.you + fin.chicas.rival - 1) bad.push('chicas mal contadas');
   if (seen[0].at(-1).reason === 'cuatro') { cuatro++; if (Math.max(...m.players.map((x) => x.score)) < 40) bad.push('cuatro sin 40'); }
   for (const p of [0, 1]) {
     let hand = new Set();
@@ -39,8 +43,8 @@ for (let g = 0; g < 300; g++) {
   const a = seen[0].at(-1).scores, b = seen[1].at(-1).scores;
   if (a.you !== b.rival || a.rival !== b.you) bad.push('perspectivas distintas');
 }
-check(`Árbitro: 300 partidas / ${plays} jugadas sin errores (40 cartas, turnos, validación, sin fugas)`, bad.length === 0, bad.slice(0, 3).join(' | '));
-check('Cuatro iguales: victoria inmediata con 40 puntos', true, `${cuatro} casos`);
+check(`Árbitro: 300 partidas (2 de 3 chicas) / ${plays} jugadas sin errores (40 cartas, turnos, validación, sin fugas)`, bad.length === 0, bad.slice(0, 3).join(' | '));
+check('Partida a 2 de 3 chicas con los tres motivos de victoria (40, cuatro iguales, 4 caídas)', reasons.cuarenta > 0 && reasons.cuatro > 0 && reasons.caidas > 0, JSON.stringify(reasons));
 
 // Escenario del bug de caída, en el servidor
 {
