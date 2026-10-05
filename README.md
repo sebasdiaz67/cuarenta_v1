@@ -3,7 +3,7 @@
 El juego de cartas de Quito contra cuatro leyendas de la ciudad, ambientado en las Fiestas de Quito.
 HTML5 Canvas 2D + JavaScript vanilla: **sin dependencias, sin módulos ES, sin archivos de imagen**. Funciona sin conexión y con doble clic (`file://`).
 
-**Versión:** 1.4.0 · **Autor:** Byron Sebastián Rosero Díaz — Ingeniero de Software
+**Versión:** 1.4.1 · **Autor:** Byron Sebastián Rosero Díaz — Ingeniero de Software
 
 ---
 
@@ -62,7 +62,7 @@ Ejemplos verificados en las pruebas:
 ### Puntos
 | Jugada | Puntos | Condición |
 |---|---|---|
-| **Caída** | +2 | Levantar **por igual** la carta que el rival acaba de jugar. |
+| **Caída** | +2 | Emparejar **por igual** la carta exacta que el rival lanzó en el turno inmediatamente anterior. No cuenta si esa carta solo se levanta por escalera o por suma. |
 | **Limpia** | +2 | Dejar la mesa vacía. Se acumula con la caída (caída y limpia = 4). |
 | **Ronda** | +2 | Recibir tres cartas del mismo valor en el reparto. |
 | **Cuatro iguales** | gana la chica | Recibir las cuatro del mismo valor. |
@@ -70,6 +70,8 @@ Ejemplos verificados en las pruebas:
 | **Dos por dar** | +2 | Empate de cartón 20–20: los recibe el que repartió. |
 
 - **Regla de 38:** con 38 puntos solo vale la caída. No suman la limpia, la ronda ni el cartón. Cuando el rival llega a 38 lo avisa: «¡Treinta y ocho que no juegan!».
+- **Sin caída pendiente:** después de cualquier levantada (incluida la limpia) y al empezar cada mano (`CAIDA_ENTRE_REPARTOS: false`) no hay carta del rival que se pueda «caer».
+- **Ejemplo (bug corregido en v1.4.1):** mesa [A propio, 2 recién lanzado por el rival]; juegas otro A → levantas A y 2 (igual + escalera) y haces limpia (+2), pero **no** caída: emparejaste tu propio As.
 - **Sobrantes:** las cartas que quedan en la mesa al final del mazo son para el último que levantó.
 - **Victoria:** el primero en llegar a 40. La comprobación se hace después de cada jugada, de cada ronda y del cartón.
 
@@ -210,7 +212,7 @@ Orden de carga obligatorio: `config.js` → `audio.js` → `draw.js` → `game.j
 ## Configuración
 | Dónde | Qué se ajusta |
 |---|---|
-| `CU.RULES` | `WIN_POINTS` (40), `CAIDA`, `LIMPIA`, `RONDA` (2), `CUATRO_IGUALES_GANA`, `ESCALERA_TRAS_SUMA`, `CARTON_MIN` (20), `CARTON_BASE` (6), `CARTON_REDONDEO_PAR`, `REGLA_38`, `CARTON_BLOQUEO_30` (variante, desactivada), `SOBRANTES_AL_ULTIMO`, `DOS_POR_DAR` |
+| `CU.RULES` | `WIN_POINTS` (40), `CAIDA`, `LIMPIA`, `RONDA` (2), `CUATRO_IGUALES_GANA`, `ESCALERA_TRAS_SUMA`, `CAIDA_ENTRE_REPARTOS`, `CARTON_MIN` (20), `CARTON_BASE` (6), `CARTON_REDONDEO_PAR`, `REGLA_38`, `CARTON_BLOQUEO_30` (variante, desactivada), `SOBRANTES_AL_ULTIMO`, `DOS_POR_DAR` |
 | `CU.CFG` | Tamaños de carta, tiempos de animación (`ANIM_PLAY`, `ANIM_DEAL`, `CARD_EASE`, `CARD_TILT`…), pausa de la IA, cantidad de diablillos (`IMPS`) |
 | `CU_AUDIO.CFG` | Carpeta y extensión de las muestras (`EXT: 'mp3'`), umbral de silencio inicial (`LEAD_IN_DB`), BPM, volúmenes, tope de voces |
 | `CU_AUDIO.PATTERN` | Patrón del bucle de banda |
@@ -218,7 +220,7 @@ Orden de carga obligatorio: `config.js` → `audio.js` → `draw.js` → `game.j
 ## Pruebas
 ```
 npm i -D playwright && npx playwright install chromium
-node tests/smoke.mjs   # 53 comprobaciones (file://, audio sintetizado)
+node tests/smoke.mjs   # 62 comprobaciones (file://, audio sintetizado)
 node tests/audio.mjs   # 15 comprobaciones (HTTP, con los MP3 reales de www/audio/)
 ```
 Cubren:
@@ -244,6 +246,6 @@ Donde las fuentes difieren, la opción quedó configurable en `CU.RULES`.
 
 **Arte y música:** diseño procedural original. No reproduce barajas comerciales ni canciones protegidas.
 
-**Cuarenta: El Juicio de las Leyendas** · v1.4.0
+**Cuarenta: El Juicio de las Leyendas** · v1.4.1
 Byron Sebastián Rosero Díaz — Ingeniero de Software
 © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. Software propietario: ver [`LICENSE`](LICENSE).

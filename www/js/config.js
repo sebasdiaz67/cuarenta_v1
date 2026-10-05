@@ -2,7 +2,7 @@
  * Cuarenta: El Juicio de las Leyendas
  * Archivo: js/config.js — Lore de las leyendas, rivales, baraja y reglas
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.4.0
+ * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.4.1
  */
 /* Solo datos: la lógica vive en game.js. Las reglas con variantes regionales se ajustan en CU.RULES. */
 window.CU = window.CU || {};
@@ -11,11 +11,11 @@ window.CU = window.CU || {};
 
   CU.META = {
     name: 'Cuarenta: El Juicio de las Leyendas',
-    version: '1.4.0',
+    version: '1.4.1',
     author: 'Byron Sebastián Rosero Díaz',
     role: 'Ingeniero de Software',
     year: 2026,
-    copyright: '© 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.4.0',
+    copyright: '© 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.4.1',
   };
 
   // ------------------------------------------------------------------ motor
@@ -52,6 +52,7 @@ window.CU = window.CU || {};
     RONDA: 2,                  // recibir tres cartas iguales
     CUATRO_IGUALES_GANA: true, // recibir las cuatro iguales gana la chica
     ESCALERA_TRAS_SUMA: true,  // después de sumar se sigue la escalera desde la carta jugada
+    CAIDA_ENTRE_REPARTOS: false, // false: al repartir una nueva mano se olvida la última carta (no hay caída sobre la mano anterior)
     CARTON_MIN: 20,            // con 20 cartas: 6 puntos
     CARTON_BASE: 6,
     CARTON_REDONDEO_PAR: true, // 21–22 cartas → 8; 23–24 → 10…

@@ -3,7 +3,7 @@
  * Archivo: js/game.js — Reglas del Cuarenta, IA, máquina de estados, entrada, composición de pantallas y bucle
  * Depende de: config.js → audio.js → draw.js (cargados antes en index.html)
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.4.0
+ * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.4.1
  */
 (function (CU) {
   'use strict';
@@ -48,13 +48,21 @@
       }
       return best;
     },
-    // Qué levanta `card` sobre `table`. last = carta que el rival acaba de jugar (para la caída).
-    // Orden: 1) carta igual (prefiere la recién jugada) 2) suma (As–7) 3) escalera ascendente desde la carta jugada.
-    findCapture(card, table, last) {
-      let taken = [], kind = null;
+    // CAÍDA (Punto 6): la carta jugada se empareja POR IGUAL con la carta exacta que el rival lanzó en el turno
+    // inmediatamente anterior. No es caída si esa carta solo cae por escalera o por suma.
+    // Bug corregido (v1.4.1): antes bastaba con que `lastPlayedCard` estuviera entre lo levantado, y la escalera
+    // (p. ej. A propio → 2 del rival) daba una caída falsa.
+    checkCaida(card, matched, lastPlayedCard) {
+      return !!lastPlayedCard && !!matched && matched === lastPlayedCard && card.rank.order === lastPlayedCard.rank.order;
+    },
+    // Qué levanta `card` sobre `table`. lastPlayedCard = carta que el rival acaba de lanzar (o null).
+    // Orden: 1) carta igual (prefiere la recién lanzada) 2) suma (As–7) 3) escalera ascendente desde la carta jugada.
+    findCapture(card, table, lastPlayedCard) {
+      let taken = [], kind = null, matched = null;
       const same = table.filter((c) => c.rank.order === card.rank.order);
       if (same.length) {
-        taken.push(last && same.includes(last) ? last : same[0]); kind = 'igual';
+        matched = lastPlayedCard && same.includes(lastPlayedCard) ? lastPlayedCard : same[0];
+        taken.push(matched); kind = 'igual';
       } else if (Rules.isSumable(card)) {                     // una figura nunca captura por suma
         const sub = Rules.bestSum(table, card.rank.value);
         if (sub && Rules.validateSuma(card, sub)) { taken = sub; kind = 'suma'; }
@@ -69,7 +77,7 @@
       if (!kind) return null;
       return {
         kind, taken,
-        caida: kind === 'igual' && !!last && taken.includes(last),
+        caida: kind === 'igual' && Rules.checkCaida(card, matched, lastPlayedCard),
         limpia: taken.length === table.length,
       };
     },
@@ -181,7 +189,7 @@
       rival, deck: [], table: [], seen: [],
       p: { name: 'Tú', hand: [], pile: [], score: 0 },
       a: { name: rival.name, hand: [], pile: [], score: 0 },
-      dealerIsP: Math.random() < 0.5, turnP: true, last: null, lastBy: null, lastCapturer: null,
+      dealerIsP: Math.random() < 0.5, turnP: true, lastPlayedCard: null, lastPlayedBy: null, lastCapturer: null,
       selected: null, play: null, bubble: null, winner: null, carton: null, dealt: 0, deckNo: 0,
     };
     Imps.clear(); flyers.length = 0;
@@ -191,13 +199,18 @@
 
   function newDeck() {
     G.deck = Rules.shuffle(Rules.makeDeck());
-    G.table = []; G.seen = []; G.p.pile = []; G.a.pile = []; G.last = null; G.lastBy = null; G.lastCapturer = null; G.play = null; G.selected = null;
+    G.table = []; G.seen = []; G.p.pile = []; G.a.pile = []; G.lastPlayedCard = null; G.lastPlayedBy = null; G.lastCapturer = null; G.play = null; G.selected = null;
     G.dealerIsP = !G.dealerIsP; G.deckNo++;
     startDeal();
   }
 
+  // Última carta lanzada por `who` que sigue en la mesa (candidata a caída del otro), o null.
+  function lastPlayedBy(who) { return G.lastPlayedBy === who && G.table.includes(G.lastPlayedCard) ? G.lastPlayedCard : null; }
+  function clearLastPlayed() { G.lastPlayedCard = null; G.lastPlayedBy = null; }
+
   function startDeal() {
     G.dealQueue = [];
+    if (!R.CAIDA_ENTRE_REPARTOS) clearLastPlayed();       // cada mano empieza sin caída pendiente
     // se reparte de 5 en 5: primero al que no da (la «mano»)
     const first = G.dealerIsP ? G.a : G.p, second = first === G.p ? G.a : G.p;
     for (const who of [first, second]) for (let i = 0; i < C.HAND_SIZE; i++) G.dealQueue.push(who);
@@ -284,12 +297,11 @@
   function resolvePlay() {
     const { who, card, isP } = G.play;
     const other = isP ? G.a : G.p;
-    const lastByOther = G.lastBy === other ? G.last : null;
-    const cap = Rules.findCapture(card, G.table, lastByOther);
+    const cap = Rules.findCapture(card, G.table, lastPlayedBy(other));
     G.seen.push(card);
     if (!cap) {
       G.table.push(card);
-      G.last = card; G.lastBy = who;
+      G.lastPlayedCard = card; G.lastPlayedBy = who;        // se queda en la mesa: el rival puede hacerle caída
       layoutTable();
       G.play.phase = 'done'; G.play.t = 0;
       return;
@@ -316,7 +328,7 @@
     }
     if (isP && pts.caida) say('suffer');
     G.lastCapturer = who;
-    G.last = null; G.lastBy = null;
+    clearLastPlayed();                                     // levantó (incluye la limpia): no hay caída posible
   }
 
   function finishCapture() {
@@ -436,7 +448,7 @@
         if (stateTime >= (G.aiDelay || (G.aiDelay = rand(C.AI_THINK[0], C.AI_THINK[1])))) {
           G.aiDelay = 0;
           const card = aiChoose(G.rival, G.a.hand, G.table, {
-            last: G.lastBy === G.p ? G.last : null, myScore: G.a.score, myHand: G.a.hand,
+            last: lastPlayedBy(G.p), myScore: G.a.score, myHand: G.a.hand,
             seen: G.seen, memory: G.rival.style.memory, oppHandSize: G.p.hand.length,
           });
           playCard(G.a, card);
@@ -568,8 +580,7 @@
 
   function drawPreview() {
     if (!G.selected || state !== S.TURNO_JUGADOR) return;
-    const lastByA = G.lastBy === G.a ? G.last : null;
-    const cap = Rules.findCapture(G.selected, G.table, lastByA);
+    const cap = Rules.findCapture(G.selected, G.table, lastPlayedBy(G.a));
     for (const c of G.table) c.hl = cap ? cap.taken.includes(c) : false;
     let msg = 'Se queda en la mesa', col = 'rgba(255,255,255,0.85)';
     if (cap) {

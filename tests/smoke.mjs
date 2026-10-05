@@ -53,6 +53,16 @@ const rules = await page.evaluate(() => {
   out.ronda38 = R.checkRonda([card('3'), card('3', 'espada'), card('3', 'basilica'), card('K'), card('A')], 38);
   out.cuatro = R.checkRonda([card('3'), card('3', 'espada'), card('3', 'basilica'), card('3', 'campana'), card('A')], 0);
   out.carton = [19, 20, 21, 22, 23, 24, 30].map((n) => R.cartonPoints(n));
+  // --- caída (Punto 6): bug del As propio + escalera sobre el 2 del rival
+  const asP = card('A'), dosIA = card('2', 'espada'), asJ = card('A', 'basilica'), asIA = card('A', 'campana');
+  const bug = R.findCapture(asJ, [asP, dosIA], dosIA);
+  out.caidaBug = { taken: bug.taken.map((c) => c.rank.id).join(','), caida: bug.caida, limpia: bug.limpia, pts: R.playPoints(bug, 10).points };
+  out.caidaValida = R.findCapture(asJ, [asIA], asIA).caida;
+  out.caidaYEscalera = (() => { const c = R.findCapture(asJ, [asIA, dosIA], asIA); return c.caida && c.taken.length === 2; })();
+  out.caidaPrefiereUltima = (() => { const c = R.findCapture(asJ, [asP, asIA], asIA); return c.taken[0] === asIA && c.caida; })();
+  out.sumaNoEsCaida = R.findCapture(card('3'), [asP, dosIA], dosIA).caida;
+  out.sinUltimaNoHayCaida = R.findCapture(asJ, [asIA], null).caida;
+  out.checkCaida = [R.checkCaida(asJ, asIA, asIA), R.checkCaida(asJ, asP, dosIA), R.checkCaida(asJ, asIA, null)].join();
   // --- auditoría de nomenclatura y suma (spec 001, Puntos 2-4)
   out.porPalo = CU.SUITS.map((su) => deck.filter((c) => c.suit.id === su.id).map((c) => c.rank.id).join('')).join('|');
   out.labels = CU.RANKS.map((r) => r.label).join('');
@@ -86,6 +96,13 @@ check('validateSuma(): 7 = 3+4 sí; 3+4+J no', rules.validaSuma34 === true && ru
 check('Las figuras no suman entre sí (K ≠ J+Q)', rules.figuraNoSumaFiguras[0] === false && rules.figuraNoSumaFiguras[1] === null);
 check('Suma pura: 7 sobre 3, 4, J levanta solo 3+4', rules.sumaPuraSinJ === '3,4', rules.sumaPuraSinJ);
 check('Con ESCALERA_TRAS_SUMA la J entra por escalera, no por suma', rules.sumaLuegoEscalera === '3,4,J', rules.sumaLuegoEscalera);
+check('BUG caída: A propio + escalera sobre el 2 del rival NO es caída (solo limpia, 2 pts)', rules.caidaBug.taken === 'A,2' && rules.caidaBug.caida === false && rules.caidaBug.limpia && rules.caidaBug.pts === 2, JSON.stringify(rules.caidaBug));
+check('Caída válida: igual a la carta que el rival acaba de lanzar', rules.caidaValida === true);
+check('Caída + escalera desde la carta del rival sigue siendo caída', rules.caidaYEscalera === true);
+check('Con dos iguales en la mesa se empareja la del rival (para la caída)', rules.caidaPrefiereUltima === true);
+check('Levantar por suma nunca es caída', rules.sumaNoEsCaida === false);
+check('Sin carta previa del rival (null) no hay caída', rules.sinUltimaNoHayCaida === false);
+check('checkCaida(): misma carta sí · otra carta no · null no', rules.checkCaida === 'true,false,false', rules.checkCaida);
 check('Levanta carta igual', rules.igual === '5');
 check('Escalera ascendente desde la carta igual', rules.escalera === '4,5,6', rules.escalera);
 check('La escalera se corta si falta una carta', rules.escaleraCorta === '6', rules.escaleraCorta);
@@ -162,6 +179,28 @@ check('Pool de partículas acotado (≤ 80)', v2.poolCap <= 80 && v2.poolCap > 6
 check('Caché de sprites acotada', v2.cache > 0 && v2.cache < 120, String(v2.cache));
 await shot('05_diablillos');
 
+// ---------- caída en partida real: escenario reportado, por VALIDAR_JUGADA ----------
+const integ = await page.evaluate(async () => {
+  const d = CU._debug, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  d.newGame(1);
+  while (d.state !== 'TURNO_JUGADOR' && d.state !== 'TURNO_IA') await sleep(20);
+  const G = d.game, deck = CU.Rules.makeDeck(), card = (r, s) => deck.find((c) => c.rank.id === r && c.suit.id === s);
+  const pos = (c, x, y) => Object.assign(c, { x, y, faceUp: true });
+  const asP = pos(card('A', 'oro'), 150, 300), dosIA = pos(card('2', 'espada'), 210, 300), asJ = pos(card('A', 'basilica'), 180, 538);
+  G.table = [asP, dosIA]; G.lastPlayedCard = dosIA; G.lastPlayedBy = G.a;        // la IA acaba de lanzar el 2
+  G.p.hand = [asJ]; G.p.score = 10; G.a.score = 10; d.setState('TURNO_JUGADOR');
+  const avisos = []; const orig = CU_AUDIO.playCaida; let latigo = 0; CU_AUDIO.playCaida = () => { latigo++; };
+  d.playCard(G.p, asJ);
+  while (d.state === 'VALIDAR_JUGADA') { if (G.play && G.play.pts) avisos.push(G.play.pts); await sleep(10); }
+  CU_AUDIO.playCaida = orig;
+  const pts = avisos[0] || {};
+  const r1 = { caida: pts.caida, limpia: pts.limpia, p: G.p.score, a: G.a.score, latigo, ultima: G.lastPlayedCard };
+  d.newGame(3);                                          // partida limpia para la simulación siguiente
+  while (d.state !== 'TURNO_JUGADOR' && d.state !== 'TURNO_IA') await sleep(20);
+  return { r1 };
+});
+check('Partida: As sobre [A propio, 2 de la IA] → +2 limpia, sin caída ni látigo; IA no suma', integ.r1.caida === false && integ.r1.limpia === true && integ.r1.p === 12 && integ.r1.a === 10 && integ.r1.latigo === 0 && integ.r1.ultima === null, JSON.stringify(integ.r1));
+
 // El resto de la partida en automático: el jugador usa la misma IA (estilo del Gallo)
 await page.evaluate(() => Object.assign(CU.CFG, { ANIM_PLAY: 0.04, ANIM_CAPTURE: 0.04, AI_THINK: [0.02, 0.03], DEAL_GAP: 0.004, HIGHLIGHT: 0.04, COUNT_STEP: 0.002, CARTON_HOLD: 0.1 }));
 const sim = await page.evaluate(async () => {
@@ -169,20 +208,22 @@ const sim = await page.evaluate(async () => {
   const t0 = performance.now();
   while (d.state !== 'JUEGO_TERMINADO' && performance.now() - t0 < 240000) {
     const G = d.game; states.add(d.state);
+    if (d.state === 'REPARTIR_CARTAS' && G.lastPlayedCard !== null) window.__caidaPendiente = (window.__caidaPendiente || 0) + 1;
     const total = G.deck.length + G.table.length + G.p.hand.length + G.a.hand.length + G.p.pile.length + G.a.pile.length + (G.play && !G.table.includes(G.play.card) && !G.p.pile.includes(G.play.card) && !G.a.pile.includes(G.play.card) ? 1 : 0);
     if (G.play && G.play.card && !G.table.includes(G.play.card) && !G.p.pile.includes(G.play.card) && !G.a.pile.includes(G.play.card) && G.deck.includes(G.play.card)) maxCards = 99;
     maxCards = Math.max(maxCards, total); minCards = Math.min(minCards, total);
     if (d.state === 'TURNO_JUGADOR') {
-      const c = d.aiChoose(CU.RIVALS[1], G.p.hand, G.table, { last: G.lastBy === G.a ? G.last : null, myScore: G.p.score, myHand: G.p.hand, seen: G.seen, memory: false, oppHandSize: G.a.hand.length });
+      const c = d.aiChoose(CU.RIVALS[1], G.p.hand, G.table, { last: G.lastPlayedBy === G.a ? G.lastPlayedCard : null, myScore: G.p.score, myHand: G.p.hand, seen: G.seen, memory: false, oppHandSize: G.a.hand.length });
       d.playCard(G.p, c);
     }
     if (++iter % 20 === 0) scoreSeq.push(G.p.score + '-' + G.a.score);
     await new Promise((r) => setTimeout(r, 15));
   }
   const G = d.game;
-  return { final: d.state, p: G.p.score, a: G.a.score, decks: G.deckNo, states: [...states], maxCards, minCards, winner: G.winner && G.winner.name };
+  return { caidaPendiente: window.__caidaPendiente || 0, final: d.state, p: G.p.score, a: G.a.score, decks: G.deckNo, states: [...states], maxCards, minCards, winner: G.winner && G.winner.name };
 });
 check('Partida completa hasta JUEGO_TERMINADO', sim.final === 'JUEGO_TERMINADO', JSON.stringify(sim));
+check('Cada reparto empieza sin caída pendiente (lastPlayedCard = null)', sim.caidaPendiente === 0, String(sim.caidaPendiente));
 check('Alguien llegó a 40', Math.max(sim.p, sim.a) >= 40 || sim.winner, `${sim.p}-${sim.a}`);
 check('Siempre 40 cartas en juego (sin perder ni duplicar)', sim.maxCards === 40 && sim.minCards === 40, `${sim.minCards}..${sim.maxCards}`);
 check('Se recorrieron los estados', ['REPARTIR_CARTAS', 'TURNO_JUGADOR', 'TURNO_IA', 'VALIDAR_JUGADA'].every((s) => sim.states.includes(s)), sim.states.join(','));

@@ -29,3 +29,5 @@ Juego de cartas Cuarenta (tradición ecuatoriana) contra cuatro leyendas de Quit
 > ✔ v1.3.1: figuras con id y etiqueta J, Q, K (antes la etiqueta mostraba S, C, R). Orden de escalera 1…7, J, Q, K.
 > ✔ v1.3.1: la suma excluye figuras dentro de `bestSum()` y `validateSuma()` (antes dependía del filtro de quien llamaba). Eliminado el flag `SUMA_SOLO_NUMEROS`, que no tenía efecto.
 > ⚠️ Con `ESCALERA_TRAS_SUMA: true`, un 7 que suma 3+4 sigue la escalera y levanta también la J (por escalera, no por suma). Pendiente de confirmar con el reglamento del usuario.
+> ✔ v1.4.1 — **Bug de caída corregido:** antes bastaba con que la última carta del rival estuviera entre lo levantado (la escalera A propio → 2 del rival daba caída falsa). Ahora `checkCaida()` exige que la carta emparejada por igual sea exactamente `lastPlayedCard`. `lastPlayedCard` se borra tras cada levantada y al inicio de cada mano (`CAIDA_ENTRE_REPARTOS: false`).
+> ⚠️ Confirmar con el reglamento si la última carta de una mano puede «caerse» con la primera de la siguiente (hoy: no).

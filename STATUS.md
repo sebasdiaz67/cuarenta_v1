@@ -1,7 +1,7 @@
 # STATUS — cuarenta
 
 **Última actualización:** 2026-10-04
-**Estado general:** v1.4.0 — Arte cartoon, perros y tantos, diablillos y audio con 5 de 6 muestras MP3 reales (los vientos se sintetizan). Sin empaquetado.
+**Estado general:** v1.4.1 — Arte cartoon, perros y tantos, diablillos y audio con 5 de 6 muestras MP3 reales (los vientos se sintetizan). Sin empaquetado.
 
 ## Features
 | Spec | Estado | Notas |
@@ -18,6 +18,7 @@
 4. Spec 007 — Elegir qué suma levantar cuando hay varias; modo «2 de 3 chicas»; estadísticas.
 
 ## Bloqueos / pendientes del usuario
+- Confirmar si se permite caída sobre la última carta de la mano anterior (`CAIDA_ENTRE_REPARTOS`, hoy `false`).
 - Confirmar si tras una suma se continúa la escalera hacia las figuras (7 → J → Q → K) o no (`ESCALERA_TRAS_SUMA`).
 - Conseguir `vientos_pasacalle.mp3` y registrar la licencia de los 5 MP3 en `www/audio/LEEME.md`.
 - Escuchar el pasacalle y decidir si el tempo/instrumentación convence.
@@ -34,3 +35,4 @@
 - 2026-10-04 — Spec 004 (v1.3.0): audio.js por muestras (preloadAudio, secuenciador 130 BPM, playCaida/playCaidaYLimpia/playPerro, window.CU_AUDIO) con respaldo sintetizado. Corregida precarga concurrente duplicada. audio 12/12, smoke 40/40.
 - 2026-10-04 — v1.3.1 (QA): etiquetas J/Q/K, campo `nominal` (J=10, Q=11, K=12), `validateSuma()`; `bestSum()` excluye figuras por sí mismo (antes una figura contaba 0); quitado flag muerto `SUMA_SOLO_NUMEROS`. Smoke 50/50, audio 12/12.
 - 2026-10-05 — v1.4.0: audio con MP3 reales (5/6; vientos sintetizados), usingSynthesizer, salto de silencio inicial, música solo tras «Jugar», robo de voz. Audio 15/15, smoke 53/53.
+- 2026-10-05 — v1.4.1 (QA): bug de caída falsa por escalera corregido (`checkCaida`), estado `lastPlayedCard/lastPlayedBy`, reinicio por mano. Smoke 62/62, audio 15/15.
