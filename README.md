@@ -26,7 +26,7 @@ HTML5 Canvas 2D + JavaScript vanilla: **el cliente no tiene dependencias, ni mó
 
 ## Cómo se juega
 1. En el menú elige una leyenda (las estrellas indican la dificultad).
-2. Primer toque sobre una carta de tu mano: se resalta lo que levantaría y se anuncia si es caída o limpia.
+2. Primer toque sobre una carta de tu mano: se resalta lo que levantaría y se anuncia si es caída o limpia (esa pista se puede desactivar en **Ajustes ⚙**).
 3. Segundo toque sobre la misma carta: la juegas. En teclado, las teclas **1–5** juegan directamente.
 4. Gana la chica quien llegue primero a **40 puntos**; gana la **partida** quien gane **2 de 3 chicas**.
 
@@ -137,7 +137,7 @@ preloadAudio() ─ fetch ─► decodeAudioData ─► AudioBuffer (caché)
 - Al decodificar se mide el silencio inicial de cada muestra y se salta al disparar (el látigo trae ~210 ms; todos los MP3 traen ~20 ms de retardo del codificador).
 - La música se agenda con el reloj de audio (`audioCtx.currentTime`). Un temporizador cada 25 ms agenda los próximos 120 ms, así que el tempo no depende de los FPS.
 - Los efectos se habilitan con el primer toque (política de autoplay). La **música solo se inicia al pulsar «Jugar»** (elegir una leyenda); después sigue en el menú y en las revanchas. Se pausa con la app en segundo plano.
-- El botón **Sonido: SÍ/NO** del menú silencia todo y recuerda la elección.
+- En **Ajustes** (engranaje ⚙ de la esquina del menú) la **Música** y los **Efectos de sonido** son switches independientes y se recuerdan por separado.
 
 ### Muestras de audio (`www/audio/`, MP3)
 | Archivo | Estado | Cuándo suena |
@@ -216,7 +216,10 @@ Solo en `localStorage`. Sin cuentas, sin red y sin datos personales.
 
 | Clave | Contenido |
 |---|---|
-| `cu.muted` | `1` si el sonido está apagado |
+| `cu.music` | `0` si la música de fondo está apagada |
+| `cu.sfx` | `0` si los efectos de sonido están apagados |
+| `cu.hints` | `0` si las pistas de jugada están desactivadas |
+| `cu.muted` | Ajuste antiguo (silenciaba todo): solo se lee una vez para migrar a `cu.music` y `cu.sfx` |
 | `cu.wins.<rival>` | Veces que le ganaste a cada leyenda (no cuenta el modo online) |
 
 ## Estructura del código
@@ -253,8 +256,8 @@ Orden de carga obligatorio: `config.js` → `rules.js` → `audio.js` → `draw.
 ```
 npm i -D playwright && npx playwright install chromium
 npm test               # las 4 suites
-node tests/smoke.mjs   # 80 comprobaciones (file://, audio sintetizado)
-node tests/audio.mjs   # 23 comprobaciones (HTTP, con los MP3 reales de www/audio/)
+node tests/smoke.mjs   # 90 comprobaciones (file://, audio sintetizado)
+node tests/audio.mjs   # 33 comprobaciones (HTTP, con los MP3 reales de www/audio/)
 node tests/match.mjs   # 15: árbitro (300 partidas) + protocolo Socket.io
 node tests/online.mjs  # 16: dos navegadores reales juegan una partida completa contra server.js
 ```

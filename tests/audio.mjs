@@ -53,7 +53,7 @@ check('Silencio inicial detectado (látigo ≈ 0.21 s; resto ≈ 20 ms de retard
 // --- la música solo arranca con «Jugar»
 await page.evaluate(() => CU_AUDIO.resumeBGM());
 check('resumeBGM() no arranca sin haber pulsado Jugar', await page.evaluate(() => !CU_AUDIO.isPlayingBGM()));
-const row = await page.evaluate(() => { const c = document.getElementById('game').getBoundingClientRect(), s = c.width / 360; return { x: c.left + 180 * s, y: c.top + (258 + 37) * s }; });
+const row = await page.evaluate(() => { const c = document.getElementById('game').getBoundingClientRect(), s = c.width / 360; return { x: c.left + 180 * s, y: c.top + (288 + 32) * s }; });
 await page.evaluate(() => { window.__starts.length = 0; window.__osc.length = 0; });
 await page.mouse.click(row.x, row.y); await sleep(150);          // «🤖 Jugar contra la IA» (misma altura)
 await page.mouse.click(row.x, row.y);                              // «Jugar» contra el Chulla
@@ -69,11 +69,34 @@ await page.evaluate(() => CU_AUDIO.resumeBGM()); await sleep(300);
 check('resumeBGM() (revancha/menú) vuelve a sonar el piano', await page.evaluate(() => CU_AUDIO.status().bgm === 'piano'));
 await page.evaluate(() => CU_AUDIO.stopBGM(0.05)); await sleep(300);
 
+// ---------- Ajustes: música y efectos se silencian por separado ----------
+const latigoD = st.durations.latigo;
+const latigo = async () => { await page.evaluate(() => { window.__starts.length = 0; CU_AUDIO.playCaida(); }); return page.evaluate((d) => window.__starts.filter((x) => x.d === d).length, latigoD); };
+check('Por defecto música y efectos activos', await page.evaluate(() => CU_AUDIO.isMusicOn() && CU_AUDIO.isSfxOn()));
+await page.evaluate(() => CU_AUDIO.toggleMusic()); await page.evaluate(() => CU_AUDIO.resumeBGM()); await sleep(200);
+check('Música apagada: resumeBGM() no suena', await page.evaluate(() => !CU_AUDIO.isMusicOn() && CU_AUDIO.status().bgm === 'apagado'));
+check('Música apagada: los efectos (látigo) siguen sonando', (await latigo()) === 1);
+check('Música apagada: se guarda cu.music=0 y cu.sfx queda intacto', await page.evaluate(() => localStorage.getItem('cu.music') === '0' && localStorage.getItem('cu.sfx') === null));
+await page.evaluate(() => CU_AUDIO.toggleMusic()); await sleep(300);
+check('Música reactivada: vuelve el piano sin pulsar Jugar de nuevo', await page.evaluate(() => CU_AUDIO.status().bgm === 'piano'));
+await page.evaluate(() => CU_AUDIO.toggleSfx()); await sleep(100);
+check('Efectos apagados: el látigo no suena', (await latigo()) === 0);
+check('Efectos apagados: la música sigue sonando', await page.evaluate(() => !CU_AUDIO.isSfxOn() && CU_AUDIO.isMusicOn() && CU_AUDIO.status().bgm === 'piano'));
+check('Efectos apagados: se guarda cu.sfx=0', await page.evaluate(() => localStorage.getItem('cu.sfx') === '0'));
+await page.evaluate(() => CU_AUDIO.toggleSfx()); await sleep(100);
+check('Efectos reactivados: el látigo vuelve a sonar', (await latigo()) === 1);
+await page.evaluate(() => CU_AUDIO.stopBGM(0.05)); await sleep(300);
+// ajuste antiguo (cu.muted=1) → ambos apagados
+await page.evaluate(() => { localStorage.removeItem('cu.music'); localStorage.removeItem('cu.sfx'); localStorage.setItem('cu.muted', '1'); });
+await page.reload();
+check('Migración: cu.muted=1 (versión anterior) apaga música y efectos', await page.evaluate(() => !CU_AUDIO.isMusicOn() && !CU_AUDIO.isSfxOn()));
+await page.evaluate(() => localStorage.clear());
+
 // ---------- 2.ª corrida: sin piano → banda con muestras ----------
 blockPiano = true;
 await page.reload();
 await page.evaluate(() => CU_AUDIO.preloadAudio());
-const row2 = await page.evaluate(() => { const c = document.getElementById('game').getBoundingClientRect(), s = c.width / 360; return { x: c.left + 180 * s, y: c.top + (258 + 37) * s }; });
+const row2 = await page.evaluate(() => { const c = document.getElementById('game').getBoundingClientRect(), s = c.width / 360; return { x: c.left + 180 * s, y: c.top + (288 + 32) * s }; });
 await page.evaluate(() => { window.__starts.length = 0; window.__osc.length = 0; });
 await page.mouse.click(row2.x, row2.y); await sleep(150);          // «🤖 Jugar contra la IA» (misma altura)
 await page.mouse.click(row2.x, row2.y);

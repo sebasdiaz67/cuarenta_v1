@@ -236,6 +236,7 @@
 
   // ------------------------------------------------------------------ posiciones
   const HAND_Y = 538, AI_HAND_Y = 176, TABLE_TOP = 214, TABLE_BOTTOM = 448;
+  const MENU_DY = 30;                                       // el menú baja para que las banderas no choquen con el engranaje de la esquina
   function handPos(i, n) { const gap = 66, x0 = W / 2 - ((n - 1) * gap) / 2; return { x: x0 + i * gap, y: HAND_Y }; }
   function aiHandPos(i, n) { const gap = 30, x0 = W / 2 - ((n - 1) * gap) / 2 + 30; return { x: x0 + i * gap, y: AI_HAND_Y }; }
   function tablePos(i, n) {
@@ -583,30 +584,53 @@
     buildFelt();
   }
 
-  const MENU_ROWS = { y0: 250, h: 74, gap: 8 };
+  const MENU_ROWS = { y0: 250 + MENU_DY, h: 74, gap: 6 };
   const BTN = {
-    ia: { x: 40, y: 262, w: 280, h: 56 },
-    online: { x: 40, y: 330, w: 280, h: 56 },
-    back: { x: 14, y: 228, w: 76, h: 24 },
+    ia: { x: 40, y: 262 + MENU_DY, w: 280, h: 56 },
+    online: { x: 40, y: 330 + MENU_DY, w: 280, h: 56 },
+    back: { x: 14, y: 228 + MENU_DY, w: 76, h: 24 },
     menuOnline: { x: 128, y: 476, w: 104, h: 40 },
-    sound: { x: 14, y: 600, w: 104, h: 26 },
+    gear: { x: 318, y: 4, w: 32, h: 32 },
     again: { x: 70, y: 476, w: 104, h: 40 },
     menu: { x: 186, y: 476, w: 104, h: 40 },
   };
+  // Pistas de jugada (resaltado + mensaje al elegir una carta). Se recuerda la elección.
+  let hints = true;
+  try { hints = localStorage.getItem('cu.hints') !== '0'; } catch { /* sin almacenamiento */ }
+  function toggleHints() {
+    hints = !hints;
+    try { localStorage.setItem('cu.hints', hints ? '1' : '0'); } catch { /* */ }
+  }
+  // Panel de ajustes (rueda del menú): una fila por opción tipo switch.
+  let settingsOpen = false;
+  const SET_PANEL = { x: 30, y: 200, w: 300, h: 268 };
+  const SET_ROWS = [
+    { y: 250, label: 'Música', sub: 'Música de fondo', get: () => Sfx.isMusicOn(), toggle: () => Sfx.toggleMusic() },
+    { y: 304, label: 'Efectos de sonido', sub: 'Sonidos de las jugadas y del menú', get: () => Sfx.isSfxOn(), toggle: () => Sfx.toggleSfx() },
+    { y: 358, label: 'Pistas de jugada', sub: 'Muestra qué levanta cada carta', get: () => hints, toggle: toggleHints },
+  ];
+  const SET_CLOSE = { x: 110, y: 412, w: 140, h: 32 };
+  function onSettingsTap(p) {
+    for (const row of SET_ROWS) {
+      if (inRect(p, { x: SET_PANEL.x, y: row.y - 20, w: SET_PANEL.w, h: 46 })) { Sfx.select(); row.toggle(); return; }
+    }
+    if (inRect(p, SET_CLOSE) || !inRect(p, SET_PANEL)) { Sfx.select(); settingsOpen = false; }
+  }
   const inRect = (p, r) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
 
   function onTap(p) {
     Sfx.unlock();                                            // reanuda el contexto para los efectos (gesto del usuario)
     if (state === S.LOBBY) return;                           // el submenú online (HTML) recibe los toques
+    if (settingsOpen) { onSettingsTap(p); return; }          // el panel de ajustes es modal
     if (state === S.MENU) {
-      if (inRect(p, BTN.sound)) { Sfx.toggle(); return; }
+      if (inRect(p, BTN.gear)) { Sfx.select(); settingsOpen = true; return; }
       if (inRect(p, BTN.ia)) { Sfx.select(); setState(S.MENU_IA); return; }
       if (inRect(p, BTN.online)) { Sfx.select(); setState(S.LOBBY); CU.Lobby.open(); return; }
       return;
     }
     if (state === S.MENU_IA) {
       if (inRect(p, BTN.back)) { Sfx.select(); setState(S.MENU); return; }
-      if (inRect(p, BTN.sound)) { Sfx.toggle(); return; }
+      if (inRect(p, BTN.gear)) { Sfx.select(); settingsOpen = true; return; }
       for (let i = 0; i < CU.RIVALS.length; i++) {
         const y = MENU_ROWS.y0 + 8 + i * (MENU_ROWS.h + MENU_ROWS.gap);
         if (p.x > 20 && p.x < W - 20 && p.y > y && p.y < y + MENU_ROWS.h) { Sfx.select(); Sfx.startBGM(); newGame(i); return; }   // «Jugar»: arma la música
@@ -659,8 +683,8 @@
   const D = CU.Draw;
   D.attach(ctx, W, H);
   const { txt, rr, wrapLines, button, drawCard, drawCardBack, drawPortrait, drawScene, Imps } = D;
-  let felt = null;
-  function buildFelt() { felt = D.buildFelt(TABLE_TOP, TABLE_BOTTOM); }
+  let felt = null, feltMenu = null;                         // feltMenu: el mismo fondo bajado MENU_DY (solo el menú)
+  function buildFelt() { felt = D.buildFelt(TABLE_TOP, TABLE_BOTTOM); feltMenu = D.buildFelt(TABLE_TOP, TABLE_BOTTOM, MENU_DY); }
 
   function drawScore(who, x, y, align, label) {
     txt(label, x, y, 11, 'rgba(255,255,255,0.85)', align, '700');
@@ -683,7 +707,7 @@
   }
 
   function drawPreview() {
-    if (!G.selected || state !== S.TURNO_JUGADOR) return;
+    if (!hints || !G.selected || state !== S.TURNO_JUGADOR) return;
     const cap = Rules.findCapture(G.selected, G.table, lastPlayedBy(G.a));
     for (const c of G.table) c.hl = cap ? cap.taken.includes(c) : false;
     let msg = 'Se queda en la mesa', col = 'rgba(255,255,255,0.85)';
@@ -791,17 +815,44 @@
     }
   }
 
+  function drawGear(r) {
+    const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+    rr(r.x, r.y, r.w, r.h, 8); ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.save(); ctx.translate(cx, cy); ctx.fillStyle = '#fff';
+    for (let i = 0; i < 8; i++) { ctx.rotate(Math.PI / 4); ctx.fillRect(-2, -10, 4, 5); }
+    ctx.beginPath(); ctx.arc(0, 0, 7.5, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#2a2f2c'; ctx.beginPath(); ctx.arc(0, 0, 3.2, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawSettings() {
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 0, W, H);
+    const P = SET_PANEL;
+    rr(P.x, P.y, P.w, P.h, 14); ctx.fillStyle = '#1f2a24'; ctx.fill();
+    ctx.strokeStyle = 'rgba(245,197,66,0.7)'; ctx.lineWidth = 1.5; ctx.stroke();
+    txt('Ajustes', W / 2, P.y + 26, 15, '#f5c542', 'center', '800', false);
+    for (const row of SET_ROWS) {
+      txt(row.label, P.x + 20, row.y, 13, '#fff', 'left', '800', false);
+      txt(row.sub, P.x + 20, row.y + 16, 9, 'rgba(255,255,255,0.65)', 'left', '600', false);
+      const on = row.get(), sx = P.x + P.w - 66, sy = row.y - 12;
+      rr(sx, sy, 46, 24, 12); ctx.fillStyle = on ? '#3fae5a' : 'rgba(255,255,255,0.25)'; ctx.fill();
+      ctx.beginPath(); ctx.arc(sx + (on ? 34 : 12), sy + 12, 9, 0, TAU); ctx.fillStyle = '#fff'; ctx.fill();
+    }
+    button(SET_CLOSE, 'Cerrar', true);
+  }
+
   function drawMenu(t) {
-    ctx.drawImage(felt, 0, 0, W, H);
+    ctx.drawImage(feltMenu, 0, 0, W, H);
     const cols = ['#c0392b', '#2e86c1', '#f1c40f', '#ffffff'];
-    for (let k = 0; k < 16; k++) { const x = 8 + k * 23, y = 6 + Math.sin(k / 15 * Math.PI) * 10; ctx.fillStyle = cols[k % 4]; ctx.beginPath(); ctx.moveTo(x - 6, y); ctx.lineTo(x + 6, y); ctx.lineTo(x + Math.sin(t * 3 + k) * 1.5, y + 12); ctx.fill(); }
-    txt('CUARENTA', W / 2, 74, 46, '#f5c542');
-    txt('El Juicio de las Leyendas', W / 2, 112, 17, '#fbf3e4', 'center', '700');
-    txt(CU.TEXT.tagline, W / 2, 136, 10, 'rgba(251,243,228,0.8)', 'center', '600', false);
+    for (let k = 0; k < 16; k++) { const x = 8 + k * 23, y = 6 + MENU_DY + Math.sin(k / 15 * Math.PI) * 10; ctx.fillStyle = cols[k % 4]; ctx.beginPath(); ctx.moveTo(x - 6, y); ctx.lineTo(x + 6, y); ctx.lineTo(x + Math.sin(t * 3 + k) * 1.5, y + 12); ctx.fill(); }
+    txt('CUARENTA', W / 2, 74 + MENU_DY, 46, '#f5c542');
+    txt('El Juicio de las Leyendas', W / 2, 112 + MENU_DY, 17, '#fbf3e4', 'center', '700');
+    txt(CU.TEXT.tagline, W / 2, 136 + MENU_DY, 10, 'rgba(251,243,228,0.8)', 'center', '600', false);
     // abanico de cartas decorativo
     const fan = [CU.RANKS[0], CU.RANKS[6], CU.RANKS[9], CU.RANKS[7]];
     fan.forEach((r, i) => {
-      ctx.save(); ctx.translate(W / 2 + (i - 1.5) * 26, 196); ctx.rotate((i - 1.5) * 0.18);
+      ctx.save(); ctx.translate(W / 2 + (i - 1.5) * 26, 196 + MENU_DY); ctx.rotate((i - 1.5) * 0.18);
       drawCard({ x: 0, y: 0, faceUp: true, rank: r, suit: CU.SUITS[i] }, 46, 66); ctx.restore();
     });
     if (state !== S.MENU_IA) {
@@ -809,10 +860,10 @@
       button(BTN.ia, '🤖  Jugar contra la IA', true);
       button(BTN.online, '🤝  Jugar con un Amigo (Online)', false);
       wrapLines(CU.TEXT.lore, 290, '500 10px system-ui, sans-serif').slice(0, 4)
-        .forEach((ln, i) => txt(ln, W / 2, 420 + i * 15, 10, 'rgba(251,243,228,0.8)', 'center', '500', false));
+        .forEach((ln, i) => txt(ln, W / 2, 420 + MENU_DY + i * 15, 10, 'rgba(251,243,228,0.8)', 'center', '500', false));
     } else {
     button(BTN.back, '‹ Volver', false);
-    txt('Elige tu rival', W / 2, 240, 12, '#f5c542', 'center', '800');
+    txt('Elige tu rival', W / 2, 240 + MENU_DY, 12, '#f5c542', 'center', '800');
     CU.RIVALS.forEach((rv, i) => {
       const y = MENU_ROWS.y0 + 8 + i * (MENU_ROWS.h + MENU_ROWS.gap);
       rr(20, y, W - 40, MENU_ROWS.h, 10); ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fill();
@@ -825,9 +876,9 @@
       txt(wins ? 'Le ganaste ' + wins + (wins === 1 ? ' vez' : ' veces') : '«' + rv.phrases.hello[0] + '»', 96, y + 54, 8.5, 'rgba(255,255,255,0.75)', 'left', '600', false);
     });
     }
-    button(BTN.sound, Sfx.isMuted() ? 'Sonido: NO' : 'Sonido: SÍ', false);
+    drawGear(BTN.gear);
     txt('v' + CU.META.version + ' | Desarrollado por ' + CU.META.author, W - 12, 628, 7.5, 'rgba(251,243,228,0.55)', 'right', '500', false);
-    const au = Sfx.status(); txt('Audio: ' + au.mode + (au.loaded.includes('piano') ? ' · fondo: piano' : ''), W - 12, 612, 7.5, 'rgba(251,243,228,0.55)', 'right', '500', false);
+    const au = Sfx.status(); txt('Audio: ' + au.mode + (au.loaded.includes('piano') ? ' · fondo: piano' : ''), W - 12, 612, 7.5, 'rgba(251,243,228,0.55)', 'right', '500', false);    if (settingsOpen) drawSettings();
   }
 
   function render() {
@@ -856,5 +907,5 @@
   requestAnimationFrame((t) => { last = t; frame(t); });
 
   // Gancho para pruebas automatizadas.
-  CU._debug = { S, get state() { return state; }, get game() { return G; }, get frames() { return frames; }, newGame, playCard, aiChoose, setState, render, flyPoints, humanPlay, netQueue, checkWin };
+  CU._debug = { S, get hints() { return hints; }, set hints(v) { hints = !!v; }, get state() { return state; }, get game() { return G; }, get frames() { return frames; }, newGame, playCard, aiChoose, setState, render, flyPoints, humanPlay, netQueue, checkWin };
 })(window.CU);

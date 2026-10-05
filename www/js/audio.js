@@ -79,9 +79,13 @@ window.CU = window.CU || {};
   const leadIn = Object.create(null);           // nombre lógico → segundos de silencio inicial a saltar
   // usingSynthesizer = true cuando NO hay ninguna muestra utilizable (file://, sin red o sin archivos).
   const status = { loaded: [], missing: [], mode: 'Sintetizado', usingSynthesizer: true, preloaded: false };
-  let voices = 0, muted = false;
+  let voices = 0, musicOff = false, sfxOff = false;     // música y efectos se silencian por separado
   const live = [];                                // voces activas en orden de inicio (para robar la más vieja)
-  try { muted = localStorage.getItem('cu.muted') === '1'; } catch { /* sin almacenamiento */ }
+  try {
+    const m = localStorage.getItem('cu.music'), f = localStorage.getItem('cu.sfx');
+    musicOff = m === '0'; sfxOff = f === '0';
+    if (m === null && f === null && localStorage.getItem('cu.muted') === '1') musicOff = sfxOff = true;   // ajuste antiguo: silenciaba todo
+  } catch { /* sin almacenamiento */ }
 
   // ------------------------------------------------------------------ contexto
   // Se puede crear antes del primer toque (queda «suspended», sirve para decodificar). Solo se REANUDA
@@ -100,7 +104,8 @@ window.CU = window.CU || {};
     return ac;
   }
   function resume() { if (ac && ac.state === 'suspended') ac.resume(); }
-  const ready = () => !muted && ensureContext();
+  const ready = () => !sfxOff && ensureContext();              // efectos
+  const readyBgm = () => !musicOff && ensureContext();         // música de fondo
   const now = () => ac.currentTime + 0.005;
 
   // =====================================================================
@@ -289,7 +294,7 @@ window.CU = window.CU || {};
     bgmBus.gain.linearRampToValueAtTime(to, t + secs);
   }
   function playLoop() {
-    if (!ready()) return;
+    if (!readyBgm()) return;
     resume();
     rampBus(buffers.piano ? CFG.PIANO_VOL : CFG.BGM_VOL);
     if (bgmOn) return;
@@ -330,7 +335,7 @@ window.CU = window.CU || {};
   document.addEventListener('visibilitychange', () => {
     if (!ac) return;
     if (document.hidden) ac.suspend();
-    else if (!muted && bgmOn) { ac.resume().then(() => { if (seq.on) seq.next = Math.max(seq.next, ac.currentTime + 0.05); }); }
+    else if (!musicOff && bgmOn) { ac.resume().then(() => { if (seq.on) seq.next = Math.max(seq.next, ac.currentTime + 0.05); }); }
   });
 
   // =====================================================================
@@ -365,13 +370,19 @@ window.CU = window.CU || {};
     get usingSynthesizer() { return status.usingSynthesizer; },
     isPlayingBGM: () => bgmOn,
     playCaida, playCaidaYLimpia, playPerro, playBarajear,
-    unlock() { if (!muted && ensureContext()) resume(); },
-    isMuted: () => muted,
-    toggle() {
-      muted = !muted;
-      try { localStorage.setItem('cu.muted', muted ? '1' : '0'); } catch { /* */ }
-      if (muted) stopBGM(0.15); else resumeBGM();
-      return muted;
+    unlock() { if ((!sfxOff || !musicOff) && ensureContext()) resume(); },
+    isMusicOn: () => !musicOff,
+    isSfxOn: () => !sfxOff,
+    toggleMusic() {
+      musicOff = !musicOff;
+      try { localStorage.setItem('cu.music', musicOff ? '0' : '1'); } catch { /* */ }
+      if (musicOff) stopBGM(0.15); else resumeBGM();
+      return !musicOff;
+    },
+    toggleSfx() {
+      sfxOff = !sfxOff;
+      try { localStorage.setItem('cu.sfx', sfxOff ? '0' : '1'); } catch { /* */ }
+      return !sfxOff;
     },
     // efectos sin muestra propia (sintetizados)
     deal: syn((t) => { if (!buffers.barajear) Z(t, 0.05, 0.25, 'highpass', 3000); }),   // con barajear.mp3 el reparto ya suena

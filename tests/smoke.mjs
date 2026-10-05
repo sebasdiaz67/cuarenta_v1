@@ -145,21 +145,47 @@ check('Cartón no suma con 38', rules.carton38.a === 0);
 
 // ---------- Partida real desde el menú ----------
 const tapRow = async (i) => page.evaluate((i) => { const c = document.getElementById('game').getBoundingClientRect(); const s = c.width / 360;
-  return { x: c.left + 180 * s, y: c.top + (258 + i * 82 + 37) * s }; }, i);
+  return { x: c.left + 180 * s, y: c.top + (288 + i * 80 + 37) * s }; }, i);
 { const c = await page.evaluate(() => { const r = document.getElementById('game').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height * 0.12 }; });
   await page.mouse.click(c.x, c.y); await wait(150); }                       // toque fuera de «Jugar» (en el título)
 check('Un toque en el menú que no es «Jugar» no inicia la música', await page.evaluate(() => !CU_AUDIO.isPlayingBGM()));
 const tapAt = async (x, y) => { const q = await page.evaluate(([x, y]) => { const c = document.getElementById('game').getBoundingClientRect(); const s = c.width / 360; return { x: c.left + x * s, y: c.top + y * s }; }, [x, y]); await page.mouse.click(q.x, q.y); };
-await tapAt(180, 290); await wait(200);                                   // «🤖 Jugar contra la IA»
+await tapAt(180, 320); await wait(200);                                   // «🤖 Jugar contra la IA»
 check('Menú principal → «Jugar contra la IA» abre la lista de leyendas', await page.evaluate(() => CU._debug.state === 'MENU_IA' && !CU_AUDIO.isPlayingBGM()));
-await tapAt(52, 240); await wait(150);                                    // «‹ Volver»
+await tapAt(52, 270); await wait(150);                                    // «‹ Volver»
 check('«‹ Volver» regresa al menú principal', await page.evaluate(() => CU._debug.state === 'MENU'));
-await tapAt(180, 358); await wait(200);                                   // «🤝 Jugar con un Amigo (Online)»
+await tapAt(180, 388); await wait(200);                                   // «🤝 Jugar con un Amigo (Online)»
 const lob = await page.evaluate(() => ({ s: CU._debug.state, open: !document.getElementById('lobby').hidden, dis: document.getElementById('lb-create').disabled, txt: document.getElementById('lb-status').textContent }));
 check('Online con file:// → submenú abierto, botones deshabilitados y aviso del servidor', lob.s === 'LOBBY' && lob.open && lob.dis && /servidor/.test(lob.txt), JSON.stringify(lob));
 await page.click('#lb-back'); await wait(150);
 check('Sin red no se intentó cargar Socket.io (sin errores) y vuelve al menú', await page.evaluate(() => CU._debug.state === 'MENU' && !window.io && document.getElementById('lobby').hidden));
-await tapAt(180, 290); await wait(200);
+
+// ---------- Ajustes (rueda del menú) ----------
+const sw = () => page.evaluate(() => ({ music: CU_AUDIO.isMusicOn(), sfx: CU_AUDIO.isSfxOn(), hints: CU._debug.hints,
+  ls: [localStorage.getItem('cu.music'), localStorage.getItem('cu.sfx'), localStorage.getItem('cu.hints')] }));
+check('Ajustes: por defecto música, efectos y pistas activados', JSON.stringify((({ music, sfx, hints }) => ({ music, sfx, hints }))(await sw())) === '{"music":true,"sfx":true,"hints":true}');
+await tapAt(334, 20); await wait(120);                                   // engranaje
+await tapAt(180, 130); await wait(120);                                  // fuera del panel → lo cierra y no hace nada más
+check('Ajustes: tocar fuera del panel lo cierra sin cambiar de pantalla ni de ajustes', await page.evaluate(() => CU._debug.state === 'MENU') && (await sw()).music);
+await tapAt(334, 20); await wait(120);
+await tapAt(300, 250); await wait(80);                                   // switch «Música»
+let a1 = await sw();
+check('Ajustes: «Música» apaga solo la música (efectos y pistas siguen)', !a1.music && a1.sfx && a1.hints && a1.ls[0] === '0' && a1.ls[1] === null, JSON.stringify(a1));
+await tapAt(300, 304); await wait(80);                                   // switch «Efectos de sonido»
+a1 = await sw();
+check('Ajustes: «Efectos de sonido» se guarda aparte (cu.sfx)', !a1.music && !a1.sfx && a1.hints && a1.ls[1] === '0', JSON.stringify(a1));
+await tapAt(300, 358); await wait(80);                                   // switch «Pistas de jugada»
+a1 = await sw();
+check('Ajustes: «Pistas de jugada» se apaga y se guarda (cu.hints)', !a1.hints && a1.ls[2] === '0', JSON.stringify(a1));
+for (const y of [250, 304, 358]) { await tapAt(300, y); await wait(60); }  // los vuelve a encender
+a1 = await sw();
+check('Ajustes: los tres switches vuelven a SÍ y se guardan', a1.music && a1.sfx && a1.hints && a1.ls.join() === '1,1,1', JSON.stringify(a1));
+await tapAt(180, 428); await wait(120);                                  // «Cerrar»
+await tapAt(180, 320); await wait(200);
+check('Ajustes: «Cerrar» devuelve el menú y «Jugar contra la IA» responde', await page.evaluate(() => CU._debug.state === 'MENU_IA'));
+await tapAt(52, 270); await wait(150);                                   // «‹ Volver»
+
+await tapAt(180, 320); await wait(200);
 let p = await tapRow(3); await page.mouse.click(p.x, p.y); await wait(300);
 check('Pulsar «Jugar» (elegir leyenda) arma e inicia la música', await page.evaluate(() => CU_AUDIO.isPlayingBGM() && CU_AUDIO.status().armed));
 check('Menú → reparto contra Cantuña y el Diablo', (await page.evaluate(() => CU._debug.game && CU._debug.game.rival.id)) === 'cantuna');
@@ -177,6 +203,16 @@ if ((await page.evaluate(() => CU._debug.state)) === 'TURNO_JUGADOR') {
   await page.mouse.click(pos.x, pos.y); await wait(150);
   await shot('03_seleccion');
   check('Primer toque selecciona la carta', await page.evaluate(() => !!CU._debug.game.selected));
+  // Pistas: el mensaje de jugada (y2 ≈ 470) solo se dibuja con las pistas activadas; la selección no depende de ellas.
+  const msgPx = () => page.evaluate(() => { const cv = document.getElementById('game'), k = cv.width / 360, d = cv.getContext('2d').getImageData(100 * k, 462 * k, 160 * k, 18 * k).data;
+    let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] > 200 && d[i + 1] > 200) n++; return n; });
+  await wait(100); const conPistas = await msgPx();
+  await page.evaluate(() => { CU._debug.hints = false; }); await wait(120);
+  const sinPistas = await msgPx();
+  check('Pistas desactivadas: no se dibuja el mensaje de la jugada', conPistas > 30 && sinPistas === 0, JSON.stringify({ conPistas, sinPistas }));
+  check('Pistas desactivadas: la carta sigue seleccionada y sin resaltar la mesa', await page.evaluate(() => !!CU._debug.game.selected && CU._debug.game.table.every((c) => !c.hl)));
+  await page.evaluate(() => { CU._debug.hints = true; }); await wait(120);
+  check('Pistas reactivadas: vuelve el mensaje', (await msgPx()) > 30);
   await page.mouse.click(pos.x, pos.y + 16 * 0); await wait(80);
   const after = await page.evaluate(() => ({ s: CU._debug.state, n: CU._debug.game.p.hand.length }));
   check('Segundo toque juega (VALIDAR_JUGADA)', after.s === 'VALIDAR_JUGADA' && after.n === 4, JSON.stringify(after));

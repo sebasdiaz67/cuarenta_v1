@@ -609,7 +609,7 @@ window.CU = window.CU || {};
     paintSanFrancisco(f);
   }
 
-  function buildFelt(tableTop, tableBottom) {      // paño pre-renderizado una sola vez
+  function buildFelt(tableTop, tableBottom, dy = 0) {      // paño pre-renderizado una sola vez; dy baja la escena (menú) y rellena arriba con el cielo
     const make = () => { const c = document.createElement('canvas'); c.width = Math.ceil(W * RES); c.height = Math.ceil(H * RES); const x = c.getContext('2d'); x.scale(RES, RES); return [c, x]; };
     const [felt, f] = make();
     // capa del paño
@@ -619,16 +619,17 @@ window.CU = window.CU || {};
     k.fillStyle = g; k.fillRect(0, 0, W, H);
     for (let i = 0; i < 2600; i++) { k.fillStyle = `rgba(${Math.random() < 0.5 ? '0,0,0' : '255,255,255'},${Math.random() * 0.05})`; k.fillRect(Math.random() * W, Math.random() * H, 1, 1); }
     if ((CU.CFG && CU.CFG.FONDO) !== 'rival') {
-      paintQuito(f);
+      if (dy) { f.fillStyle = NIGHT.top; f.fillRect(0, 0, W, dy + 1); f.save(); f.translate(0, dy); paintQuito(f); f.restore(); }
+      else paintQuito(f);
       // el paño aparece con un degradado vertical: transparente sobre la ciudad, opaco desde la mesa
-      const m = k.createLinearGradient(0, 135, 0, 215);
+      const m = k.createLinearGradient(0, 135 + dy, 0, 215 + dy);
       m.addColorStop(0, 'rgba(0,0,0,0)'); m.addColorStop(1, 'rgba(0,0,0,1)');
       k.globalCompositeOperation = 'destination-in'; k.fillStyle = m; k.fillRect(0, 0, W, H);
       k.globalCompositeOperation = 'source-over';
     }
     f.setTransform(1, 0, 0, 1, 0, 0); f.drawImage(cloth, 0, 0); f.setTransform(RES, 0, 0, RES, 0, 0);
     f.strokeStyle = 'rgba(245,197,66,0.25)'; f.lineWidth = 1.5; f.setLineDash([4, 4]);
-    f.strokeRect(14, tableTop - 18, W - 28, tableBottom - tableTop + 36);
+    f.strokeRect(14, tableTop - 18 + dy, W - 28, tableBottom - tableTop + 36);
     return felt;
   }
 
