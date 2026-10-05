@@ -2,7 +2,7 @@
  * Cuarenta: El Juicio de las Leyendas
  * Archivo: js/config.js — Lore de las leyendas, rivales, baraja y reglas
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.3.1
+ * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.4.0
  */
 /* Solo datos: la lógica vive en game.js. Las reglas con variantes regionales se ajustan en CU.RULES. */
 window.CU = window.CU || {};
@@ -11,11 +11,11 @@ window.CU = window.CU || {};
 
   CU.META = {
     name: 'Cuarenta: El Juicio de las Leyendas',
-    version: '1.3.1',
+    version: '1.4.0',
     author: 'Byron Sebastián Rosero Díaz',
     role: 'Ingeniero de Software',
     year: 2026,
-    copyright: '© 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.3.1',
+    copyright: '© 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.4.0',
   };
 
   // ------------------------------------------------------------------ motor

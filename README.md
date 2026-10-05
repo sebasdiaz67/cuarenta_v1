@@ -3,7 +3,7 @@
 El juego de cartas de Quito contra cuatro leyendas de la ciudad, ambientado en las Fiestas de Quito.
 HTML5 Canvas 2D + JavaScript vanilla: **sin dependencias, sin módulos ES, sin archivos de imagen**. Funciona sin conexión y con doble clic (`file://`).
 
-**Versión:** 1.3.1 · **Autor:** Byron Sebastián Rosero Díaz — Ingeniero de Software
+**Versión:** 1.4.0 · **Autor:** Byron Sebastián Rosero Díaz — Ingeniero de Software
 
 ---
 
@@ -111,26 +111,27 @@ preloadAudio() ─ fetch ─► decodeAudioData ─► AudioBuffer (caché)
                      ├─► master ─► altavoz
 [música]  ─► bgmBus ─┘
 ```
-- Cada sonido crea su propio nodo y lo libera al terminar (`onended`). Hay un tope de **24 voces** simultáneas.
+- Cada sonido crea su propio nodo y lo libera al terminar (`onended`). Tope de **24 voces**: si se llena, se apaga la más vieja y el sonido nuevo siempre suena.
+- Al decodificar se mide el silencio inicial de cada muestra y se salta al disparar (el látigo trae ~210 ms; todos los MP3 traen ~20 ms de retardo del codificador).
 - La música se agenda con el reloj de audio (`audioCtx.currentTime`). Un temporizador cada 25 ms agenda los próximos 120 ms, así que el tempo no depende de los FPS.
-- El sonido arranca con el primer toque (política de autoplay del navegador, Android y Capacitor) y se pausa con la app en segundo plano.
+- Los efectos se habilitan con el primer toque (política de autoplay). La **música solo se inicia al pulsar «Jugar»** (elegir una leyenda); después sigue en el menú y en las revanchas. Se pausa con la app en segundo plano.
 - El botón **Sonido: SÍ/NO** del menú silencia todo y recuerda la elección.
 
-### Muestras de audio (`www/audio/`)
-| Archivo | Cuándo suena |
-|---|---|
-| `bombo.wav` | Música: tiempos 1, 2 y 3 |
-| `platillo.wav` | Música: tiempo 2 |
-| `vientos_pasacalle.wav` | Música: tiempo 4 (máximo 0.46 s) |
-| `latigo.wav` | **Caída** (`playCaida`) y caída + limpia |
-| `risa_diablo.wav` | **Caída + limpia** (180 ms después del látigo) y jugadas fuertes de Cantuña |
-| `perro_ladrido.wav` | Completar un **perro** (`playPerro`) |
+### Muestras de audio (`www/audio/`, MP3)
+| Archivo | Estado | Cuándo suena |
+|---|---|---|
+| `bombo.mp3` | ✔ 1.04 s | Música: tiempos 1, 2 y 3 |
+| `platillo.mp3` | ✔ 1.33 s | Música: tiempo 2 |
+| `vientos_pasacalle.mp3` | ✘ **falta** (se sintetiza con onda cuadrada filtrada) | Música: tiempo 4 (máximo 0.46 s) |
+| `latigo.mp3` | ✔ 1.10 s | **Caída** (`playCaida`) y caída + limpia |
+| `risa_diablo.mp3` | ✔ 4.01 s | **Caída + limpia** (180 ms después del látigo) y jugadas fuertes de Cantuña |
+| `perro_ladrido.mp3` | ✔ 1.03 s (copia de `tests/fixtures/audio/ladrido.mp3`) | Completar un **perro** (`playPerro`) |
 
-> ⚠️ **Todavía no hay muestras reales.** `www/audio/LEEME.md` tiene la especificación técnica (formato, duración, licencia). Mientras falten, cada sonido usa su versión sintetizada. El menú indica el modo activo («Audio: …»).
+El menú indica el modo activo: «Audio: Muestras», «Audio: Mixto (5/6 muestras)» o «Audio: Sintetizado» (`usingSynthesizer = true`: con `file://` o sin bombo).
 
 ### Música («Banda de Pueblo Dicembrina»)
-- **Con muestras:** bucle a **130 BPM**: 1 bombo · 2 bombo + platillo · 3 bombo · 4 vientos (editable en `PATTERN`).
-- **Sin muestras o con `file://`:** pasacalle **sintetizado y original** en 2/4 (La menor armónica → Do mayor → dominante, 16 compases), con quena (onda triángulo con vibrato), banda (diente de sierra filtrada), tuba (onda cuadrada filtrada) y percusión. **No es «El Chulla Quiteño»**: esa obra está protegida.
+- **Con muestras** (basta el bombo; las voces que falten se sintetizan): bucle a **130 BPM**: 1 bombo · 2 bombo + platillo · 3 bombo · 4 vientos (editable en `PATTERN`).
+- **Sintetizado** (`file://` o sin bombo): pasacalle **original** en 2/4 a 130 BPM (La menor armónica → Do mayor → dominante, 16 compases): vientos con ondas cuadradas filtradas, bajo con ondas triangulares, banda a contratiempo y percusión. **No es «El Chulla Quiteño»**: esa obra está protegida.
 - Se detiene en la pantalla final y vuelve con «Revancha» o «Menú».
 
 ### Efectos sintetizados (no tienen muestra)
@@ -198,8 +199,8 @@ www/js/draw.js        arte procedural, sprites, perros/tantos, retratos, escenar
 www/js/game.js        reglas puras, IA, estados, entrada, composición de pantallas, bucle
 www/audio/LEEME.md    especificación de las muestras de audio
 tests/smoke.mjs       reglas + partida completa + rendimiento (file://)
-tests/audio.mjs       motor de audio por HTTP con muestras de prueba
-tests/make-fixtures.mjs  genera los WAV de prueba (tests/fixtures/audio/)
+tests/audio.mjs       motor de audio por HTTP con las muestras reales
+tests/make-fixtures.mjs  (obsoleto) generaba WAV de prueba; ya no lo usa ninguna prueba
 specs/                especificaciones SDD (001 motor y reglas · 002 arte, música y dinamismo · 003 arte cartoon · 004 audio)
 ```
 Orden de carga obligatorio: `config.js` → `audio.js` → `draw.js` → `game.js`.
@@ -211,24 +212,24 @@ Orden de carga obligatorio: `config.js` → `audio.js` → `draw.js` → `game.j
 |---|---|
 | `CU.RULES` | `WIN_POINTS` (40), `CAIDA`, `LIMPIA`, `RONDA` (2), `CUATRO_IGUALES_GANA`, `ESCALERA_TRAS_SUMA`, `CARTON_MIN` (20), `CARTON_BASE` (6), `CARTON_REDONDEO_PAR`, `REGLA_38`, `CARTON_BLOQUEO_30` (variante, desactivada), `SOBRANTES_AL_ULTIMO`, `DOS_POR_DAR` |
 | `CU.CFG` | Tamaños de carta, tiempos de animación (`ANIM_PLAY`, `ANIM_DEAL`, `CARD_EASE`, `CARD_TILT`…), pausa de la IA, cantidad de diablillos (`IMPS`) |
-| `CU_AUDIO.CFG` | Carpeta y extensión de las muestras (`EXT: 'wav'`; usar `'ogg'` para pesar menos), BPM, volúmenes, tope de voces |
+| `CU_AUDIO.CFG` | Carpeta y extensión de las muestras (`EXT: 'mp3'`), umbral de silencio inicial (`LEAD_IN_DB`), BPM, volúmenes, tope de voces |
 | `CU_AUDIO.PATTERN` | Patrón del bucle de banda |
 
 ## Pruebas
 ```
 npm i -D playwright && npx playwright install chromium
-node tests/smoke.mjs                                  # 50 comprobaciones (file://)
-node tests/make-fixtures.mjs && node tests/audio.mjs  # 12 comprobaciones (HTTP)
+node tests/smoke.mjs   # 53 comprobaciones (file://, audio sintetizado)
+node tests/audio.mjs   # 15 comprobaciones (HTTP, con los MP3 reales de www/audio/)
 ```
 Cubren:
 - Reglas: baraja, nomenclatura J/Q/K, igual, suma, escalera, figuras que no suman, caída, limpia, regla de 38, ronda, cartón y dos por dar.
 - Interfaz: tocar para elegir y jugar.
 - Una partida completa automática, verificando que siempre haya 40 cartas en juego.
 - Rendimiento con la CPU 4 veces más lenta, música, lanzamiento flotante, diablillos y perros/tantos.
-- Audio: patrón exacto, desvío del ritmo menor a 1 ms, liberación de nodos y tope de voces.
+- Audio: carga de los MP3, detección del archivo faltante, silencio inicial, música solo tras «Jugar», patrón exacto, desvío del ritmo menor a 1 ms, liberación de nodos y robo de voz con el cupo lleno.
 
 ## Pendientes conocidos
-- Grabar o licenciar las 6 muestras de audio (ver `www/audio/LEEME.md`).
+- Falta `vientos_pasacalle.mp3` (hoy se sintetiza). Confirmar la licencia de uso comercial de los 5 MP3.
 - Pasar retratos y escenarios al estilo cartoon (hoy desentonan con las cartas).
 - Confirmar si después de una suma se sigue la escalera hacia las figuras (`ESCALERA_TRAS_SUMA`).
 - Probar en un celular real: legibilidad de las figuras en la mesa (50×72) y dificultad de Cantuña, que gana la mayoría de las partidas simuladas.
@@ -243,6 +244,6 @@ Donde las fuentes difieren, la opción quedó configurable en `CU.RULES`.
 
 **Arte y música:** diseño procedural original. No reproduce barajas comerciales ni canciones protegidas.
 
-**Cuarenta: El Juicio de las Leyendas** · v1.3.1
+**Cuarenta: El Juicio de las Leyendas** · v1.4.0
 Byron Sebastián Rosero Díaz — Ingeniero de Software
 © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. Software propietario: ver [`LICENSE`](LICENSE).

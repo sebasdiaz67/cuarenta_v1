@@ -28,3 +28,11 @@
 - [x] `tests/smoke.mjs` 40/40 con `file://` (respaldo).
 - [ ] Muestras reales grabadas o con licencia comercial, según `www/audio/LEEME.md`.
 - [ ] Prueba en Android (Capacitor) con altavoz.
+
+## v1.4.0 — Muestras MP3 reales
+- `CFG.EXT = 'mp3'`; 5 de 6 muestras presentes. Falta `vientos_pasacalle.mp3`: esa voz se sintetiza y el resto del bucle usa muestras («Mixto»).
+- `usingSynthesizer` (sin bombo o con `file://`) → menú «Audio: Sintetizado»; respaldo: vientos con ondas cuadradas filtradas, bajo con ondas triangulares.
+- Detección y salto del silencio inicial por muestra (látigo ~210 ms; retardo MP3 ~20 ms en todas).
+- Música armada solo al pulsar «Jugar» (`startBGM`); `resumeBGM` para revancha, menú y sonido.
+- Polifonía: robo de la voz más vieja en lugar de descartar el sonido nuevo.
+- [x] `tests/audio.mjs` 15/15 con los MP3 reales · `tests/smoke.mjs` 53/53.

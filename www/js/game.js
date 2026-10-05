@@ -3,7 +3,7 @@
  * Archivo: js/game.js — Reglas del Cuarenta, IA, máquina de estados, entrada, composición de pantallas y bucle
  * Depende de: config.js → audio.js → draw.js (cargados antes en index.html)
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.3.1
+ * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.4.0
  */
 (function (CU) {
   'use strict';
@@ -511,19 +511,18 @@
   const inRect = (p, r) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
 
   function onTap(p) {
-    Sfx.unlock();
-    if (state !== S.JUEGO_TERMINADO) Sfx.startBGM();          // autoplay: el navegador exige un gesto
+    Sfx.unlock();                                            // reanuda el contexto para los efectos (gesto del usuario)
     if (state === S.MENU) {
       if (inRect(p, BTN.sound)) { Sfx.toggle(); return; }
       for (let i = 0; i < CU.RIVALS.length; i++) {
         const y = MENU_ROWS.y0 + 8 + i * (MENU_ROWS.h + MENU_ROWS.gap);
-        if (p.x > 20 && p.x < W - 20 && p.y > y && p.y < y + MENU_ROWS.h) { Sfx.select(); newGame(i); return; }
+        if (p.x > 20 && p.x < W - 20 && p.y > y && p.y < y + MENU_ROWS.h) { Sfx.select(); Sfx.startBGM(); newGame(i); return; }   // «Jugar»: arma la música
       }
       return;
     }
     if (state === S.JUEGO_TERMINADO && stateTime > 0.8) {
-      if (inRect(p, BTN.again)) { newGame(CU.RIVALS.indexOf(G.rival)); Sfx.startBGM(); }
-      else if (inRect(p, BTN.menu)) { G = null; Imps.clear(); setState(S.MENU); Sfx.startBGM(); }
+      if (inRect(p, BTN.again)) { newGame(CU.RIVALS.indexOf(G.rival)); Sfx.resumeBGM(); }
+      else if (inRect(p, BTN.menu)) { G = null; Imps.clear(); setState(S.MENU); Sfx.resumeBGM(); }
       return;
     }
     if (state !== S.TURNO_JUGADOR) return;
@@ -540,7 +539,7 @@
   });
   window.addEventListener('keydown', (e) => {
     if (state === S.TURNO_JUGADOR && G && /^[1-5]$/.test(e.key)) {
-      const c = G.p.hand[parseInt(e.key, 10) - 1]; if (c) { Sfx.unlock(); Sfx.startBGM(); playCard(G.p, c); }
+      const c = G.p.hand[parseInt(e.key, 10) - 1]; if (c) { Sfx.unlock(); Sfx.resumeBGM(); playCard(G.p, c); }
     }
   });
   window.addEventListener('resize', resize);
@@ -674,7 +673,7 @@
     });
     button(BTN.sound, Sfx.isMuted() ? 'Sonido: NO' : 'Sonido: SÍ', false);
     txt('v' + CU.META.version + ' | Desarrollado por ' + CU.META.author, W - 12, 628, 7.5, 'rgba(251,243,228,0.55)', 'right', '500', false);
-    const au = Sfx.status(); txt('Audio: ' + au.mode + (au.loaded.length ? ' ' + au.loaded.length + '/6' : ''), W - 12, 612, 7.5, 'rgba(251,243,228,0.55)', 'right', '500', false);
+    const au = Sfx.status(); txt('Audio: ' + au.mode, W - 12, 612, 7.5, 'rgba(251,243,228,0.55)', 'right', '500', false);
   }
 
   function render() {

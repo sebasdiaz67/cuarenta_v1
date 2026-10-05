@@ -25,7 +25,8 @@ check('Autoría y título', (await page.title()) === 'Cuarenta: El Juicio de las
   && (await page.getAttribute('meta[name="author"]', 'content')) === 'Byron Sebastián Rosero Díaz');
 await shot('01_menu');
 const au = await page.evaluate(() => CU_AUDIO.preloadAudio());
-check('Audio con file://: respaldo sintetizado sin intentar fetch', au.mode === 'sintetizado (file://)' && au.loaded.length === 0, JSON.stringify(au));
+check('Audio con file://: «Sintetizado», usingSynthesizer y sin fetch', au.mode === 'Sintetizado' && au.usingSynthesizer === true && au.loaded.length === 0, JSON.stringify(au));
+check('La música no arranca antes de pulsar Jugar', await page.evaluate(() => !CU_AUDIO.isPlayingBGM() && !CU_AUDIO.status().armed));
 
 // ---------- Reglas (puras) ----------
 const rules = await page.evaluate(() => {
@@ -108,7 +109,11 @@ check('Cartón no suma con 38', rules.carton38.a === 0);
 // ---------- Partida real desde el menú ----------
 const tapRow = async (i) => page.evaluate((i) => { const c = document.getElementById('game').getBoundingClientRect(); const s = c.width / 360;
   return { x: c.left + 180 * s, y: c.top + (258 + i * 82 + 37) * s }; }, i);
+{ const c = await page.evaluate(() => { const r = document.getElementById('game').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height * 0.12 }; });
+  await page.mouse.click(c.x, c.y); await wait(150); }                       // toque fuera de «Jugar» (en el título)
+check('Un toque en el menú que no es «Jugar» no inicia la música', await page.evaluate(() => !CU_AUDIO.isPlayingBGM()));
 let p = await tapRow(3); await page.mouse.click(p.x, p.y); await wait(300);
+check('Pulsar «Jugar» (elegir leyenda) arma e inicia la música', await page.evaluate(() => CU_AUDIO.isPlayingBGM() && CU_AUDIO.status().armed));
 check('Menú → reparto contra Cantuña y el Diablo', (await page.evaluate(() => CU._debug.game && CU._debug.game.rival.id)) === 'cantuna');
 await wait(2200);
 const st = await page.evaluate(() => { const G = CU._debug.game;

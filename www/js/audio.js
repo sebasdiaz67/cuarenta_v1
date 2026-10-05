@@ -2,7 +2,7 @@
  * Cuarenta: El Juicio de las Leyendas
  * Archivo: js/audio.js — Motor de audio: sampler + secuenciador «Banda de Pueblo Dicembrina» + efectos de jugada
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * Módulo de audio por muestras v1.0.0 · Juego v1.3.1
+ * Módulo de audio por muestras v1.1.0 · Juego v1.4.0
  * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados.
  */
 /*
@@ -16,7 +16,8 @@
  *
  * - Cada disparo crea un AudioBufferSourceNode NUEVO (son de un solo uso por especificación) y lo desconecta
  *   en `onended`, junto con su GainNode, para que el recolector los libere (evita fugas en WebView de Android).
- * - Tope de polifonía (MAX_VOICES): si se supera, el disparo se descarta en vez de saturar el hilo de audio.
+ * - Tope de polifonía (MAX_VOICES): al superarlo se apaga la voz más vieja (con micro-fundido) y el sonido nuevo SIEMPRE suena.
+ * - Se salta el silencio inicial de cada muestra (incluye el retardo de ~20 ms que añade el codificador MP3).
  * - Reloj: el secuenciador agenda con `audioCtx.currentTime` (reloj del hardware de audio), con la técnica
  *   lookahead: un setInterval de 25 ms solo DECIDE qué agendar en los próximos 120 ms; la precisión la da el
  *   hilo de audio, no el temporizador de JavaScript ni los FPS.
@@ -24,8 +25,8 @@
  * RESPALDO SINTETIZADO (no se elimina a propósito):
  * - Con `file://` el navegador bloquea fetch() de archivos locales → no hay muestras. En Capacitor
  *   (https://localhost) sí cargan.
- * - Si falta una muestra, ese efecto se sintetiza; si falta cualquiera de las 3 del bucle, suena el pasacalle
- *   sintetizado de la v1.1 (composición original; NO es «El Chulla Quiteño», obra protegida).
+ * - Si falta una muestra, esa voz se sintetiza (p. ej. vientos_pasacalle.mp3 hoy). Sin bombo, todo el bucle es el
+ *   pasacalle sintetizado (composición original; NO es «El Chulla Quiteño», obra protegida). Menú: «Audio: Sintetizado».
  * - Los efectos sin muestra definida (carta, selección, tic, limpia, ronda, victoria, derrota) siguen sintetizados.
  *
  * API: window.CU_AUDIO (alias de CU.Audio y CU.Sfx)
@@ -41,7 +42,8 @@ window.CU = window.CU || {};
   // =====================================================================
   const CFG = {
     DIR: 'audio/',                 // relativo a index.html → www/audio/
-    EXT: 'wav',                    // cambiar a 'ogg' o 'm4a' para reducir peso sin tocar el código
+    EXT: 'mp3',                    // formato de producción (MP3 comprimido; Android WebView y Safari lo decodifican)
+    LEAD_IN_DB: -40,               // silencio inicial bajo este nivel se salta al disparar (latigo.mp3 trae ~210 ms)
     BPM: 130,
     LOOKAHEAD_MS: 25,              // cada cuánto despierta el planificador
     HORIZON_S: 0.12,               // cuánto agenda por delante
@@ -54,7 +56,6 @@ window.CU = window.CU || {};
     bombo: 'bombo', platillo: 'platillo', vientos: 'vientos_pasacalle',
     latigo: 'latigo', risa: 'risa_diablo', perro: 'perro_ladrido',
   };
-  const LOOP_SAMPLES = ['bombo', 'platillo', 'vientos'];
 
   // Patrón por tiempo del compás (4 tiempos). Editable: [muestra, ganancia].
   // Tal como se especificó es un 4/4 parejo (no síncopado). Para sincopar habría que pasar a una rejilla de
@@ -71,8 +72,11 @@ window.CU = window.CU || {};
   // =====================================================================
   let ac = null, master = null, sfxBus = null, bgmBus = null, noiseBuf = null, vibrato = null;
   const buffers = Object.create(null);          // nombre lógico → AudioBuffer
-  const status = { loaded: [], missing: [], mode: 'sintetizado', preloaded: false };
+  const leadIn = Object.create(null);           // nombre lógico → segundos de silencio inicial a saltar
+  // usingSynthesizer = true cuando NO hay ninguna muestra utilizable (file://, sin red o sin archivos).
+  const status = { loaded: [], missing: [], mode: 'Sintetizado', usingSynthesizer: true, preloaded: false };
   let voices = 0, muted = false;
+  const live = [];                                // voces activas en orden de inicio (para robar la más vieja)
   try { muted = localStorage.getItem('cu.muted') === '1'; } catch { /* sin almacenamiento */ }
 
   // ------------------------------------------------------------------ contexto
@@ -102,10 +106,22 @@ window.CU = window.CU || {};
   function decode(arr) {
     return new Promise((res, rej) => { const p = ac.decodeAudioData(arr, res, rej); if (p && p.then) p.then(res, rej); });
   }
+  // Primer instante audible (cualquier canal) menos 5 ms de margen. Se calcula una vez por muestra.
+  function findLeadIn(buf) {
+    const thr = Math.pow(10, CFG.LEAD_IN_DB / 20), n = buf.length;
+    let first = n;
+    for (let ch = 0; ch < buf.numberOfChannels; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i = 0; i < first; i++) if (Math.abs(d[i]) > thr) { first = i; break; }
+    }
+    return first >= n ? 0 : Math.max(0, first / buf.sampleRate - 0.005);
+  }
   async function loadOne(name) {
     const r = await fetch(CFG.DIR + SAMPLES[name] + '.' + CFG.EXT);
     if (!r.ok) throw new Error(r.status + ' ' + r.url);
-    buffers[name] = await decode(await r.arrayBuffer());
+    const buf = await decode(await r.arrayBuffer());
+    buffers[name] = buf;
+    leadIn[name] = findLeadIn(buf);
     return name;
   }
   // Idempotente: llamadas repetidas o concurrentes comparten la MISMA promesa (no duplican fetch ni listas).
@@ -113,18 +129,23 @@ window.CU = window.CU || {};
   function preloadAudio() { return preloading || (preloading = doPreload()); }
   async function doPreload() {
     status.loaded = []; status.missing = [];
-    if (!ensureContext()) { status.mode = 'sin Web Audio'; status.preloaded = true; return status; }
-    if (location.protocol === 'file:') {
-      // fetch de file:// está bloqueado: ni se intenta (evita errores en consola). Respaldo sintetizado.
-      status.missing = Object.keys(SAMPLES); status.mode = 'sintetizado (file://)'; status.preloaded = true; return status;
-    }
     const names = Object.keys(SAMPLES);
-    const res = await Promise.allSettled(names.map(loadOne));                     // en paralelo; una falla no frena al resto
-    res.forEach((r, i) => (r.status === 'fulfilled' ? status.loaded : status.missing).push(names[i]));
-    status.mode = LOOP_SAMPLES.every((n) => buffers[n]) ? 'muestras' : 'sintetizado';
+    try {
+      if (!ensureContext()) throw new Error('Web Audio no disponible');
+      // Con doble clic (file://) Chrome bloquea fetch por CORS y además lo escribe en consola aunque se capture:
+      // por eso ni se intenta. Cualquier otro fallo (404, red, decodificación) cae en el catch por archivo.
+      if (location.protocol === 'file:') throw new Error('file://');
+      const res = await Promise.allSettled(names.map(loadOne));                   // en paralelo; una falla no frena al resto
+      res.forEach((r, i) => (r.status === 'fulfilled' ? status.loaded : status.missing).push(names[i]));
+    } catch {
+      status.loaded = []; status.missing = names.slice();                        // silencioso: el juego sigue sonando
+    }
+    status.usingSynthesizer = !buffers.bombo;                                     // sin bombo no hay pulso de banda
+    status.mode = status.usingSynthesizer ? 'Sintetizado'
+      : status.missing.length ? 'Mixto (' + status.loaded.length + '/' + names.length + ' muestras)' : 'Muestras';
     status.preloaded = true;
-    // Si la música ya sonaba con el respaldo y las muestras llegaron después, se cambia al sampler en caliente.
-    if (seq.on && status.mode === 'muestras' && seq.mode !== 'muestras') { seq.mode = 'muestras'; seq.beat = 0; }
+    // Si la música ya sonaba sintetizada y las muestras llegaron después, cambia al sampler en caliente.
+    if (seq.on && !status.usingSynthesizer && seq.mode !== 'muestras') { seq.mode = 'muestras'; seq.beat = 0; }
     return status;
   }
 
@@ -134,20 +155,27 @@ window.CU = window.CU || {};
   function playSample(name, t, opt = {}) {
     const buf = buffers[name];
     if (!buf || !ac) return false;
-    if (voices >= CFG.MAX_VOICES) return true;                                    // saturado: se descarta en silencio
+    if (voices >= CFG.MAX_VOICES && live.length) {                                // saturado: roba la voz más vieja
+      const old = live.shift(); old.stolen = true; voices--;                       // se descuenta ya, no al terminar
+      try { old.g.gain.setTargetAtTime(0, ac.currentTime, 0.005); old.src.stop(ac.currentTime + 0.03); } catch { /* ya terminó */ }
+    }
     const src = ac.createBufferSource(), g = ac.createGain();
     src.buffer = buf;
     if (opt.rate) src.playbackRate.value = opt.rate;
     g.gain.value = opt.gain == null ? 1 : opt.gain;
     src.connect(g); g.connect(opt.bus || sfxBus);
-    src.start(t);
+    src.start(t, leadIn[name] || 0);                                              // salta el silencio inicial
     if (opt.maxDur) {                                                             // recorte con micro-fundido (sin clic)
       g.gain.setValueAtTime(g.gain.value, t + opt.maxDur - 0.02);
       g.gain.linearRampToValueAtTime(0, t + opt.maxDur);
       src.stop(t + opt.maxDur + 0.01);
     }
     voices++;
-    src.onended = () => { voices--; src.disconnect(); g.disconnect(); src.onended = null; };
+    const v = { src, g }; live.push(v);
+    src.onended = () => {                                                         // limpieza automática
+      if (!v.stolen) { voices--; const i = live.indexOf(v); if (i >= 0) live.splice(i, 1); }
+      src.disconnect(); g.disconnect(); src.onended = null;
+    };
     return true;
   }
 
@@ -176,7 +204,7 @@ window.CU = window.CU || {};
   const SYN = {                                             // equivalentes sintetizados de cada muestra
     bombo: (t, v, bus) => { tone(bus, 'sine', 120, 45, t, 0.25, 0.9 * v); noise(bus, t, 0.04, 0.2 * v, 'lowpass', 900); },
     platillo: (t, v, bus) => noise(bus, t, 0.22, 0.25 * v, 'highpass', 6000),
-    vientos: (t, v, bus) => { for (const f of [220, 277.2, 329.6]) tone(bus, 'sawtooth', f, f, t, 0.3, 0.07 * v, { lp: 1600, attack: 0.01 }); },
+    vientos: (t, v, bus) => { for (const f of [220, 277.2, 329.6]) tone(bus, 'square', f, f, t, 0.3, 0.06 * v, { lp: 1400, attack: 0.012 }); },   // cuadrada filtrada
     latigo: (t, v, bus) => { noise(bus, t, 0.09, 0.9 * v, 'highpass', 2500); tone(bus, 'sine', 110, 45, t, 0.25, 0.8 * v); },
     risa: (t, v, bus) => { for (let k = 0; k < 4; k++) tone(bus, 'sawtooth', 190 - k * 12, 150 - k * 12, t + k * 0.13, 0.11, 0.18 * v, { lp: 900 }); },
     perro: (t, v, bus) => { for (let k = 0; k < 2; k++) { tone(bus, 'square', 620, 330, t + k * 0.16, 0.09, 0.14 * v, { lp: 2200 }); noise(bus, t + k * 0.16, 0.06, 0.12 * v, 'bandpass', 1200); } },
@@ -198,7 +226,8 @@ window.CU = window.CU || {};
     }
   }
 
-  // ------------------------------------------------------------------ respaldo: pasacalle sintetizado (v1.1)
+  // ------------------------------------------------------------------ respaldo: pasacalle sintetizado (usingSynthesizer)
+  // Mismo tempo (130 BPM, en semicorcheas). Vientos = ondas cuadradas filtradas; bajo = ondas triangulares.
   const SEMI = { C: -9, D: -7, E: -5, F: -4, G: -2, A: 0, B: 2 }, hzCache = {};
   function hz(n) {
     if (hzCache[n]) return hzCache[n];
@@ -221,10 +250,10 @@ window.CU = window.CU || {};
     const bar = Math.floor(i / 8), s = i % 8, ch = CH[CHORDS[bar]], tok = MELODY[bar][s];
     if (tok !== '-' && tok !== '.') {
       let len = 1; for (let k = i + 1; k < TOTAL16 && MELODY[Math.floor(k / 8)][k % 8] === '-'; k++) len++;
-      tone(bgmBus, 'triangle', hz(tok), hz(tok), t, len * step * 0.95, 0.3, { attack: 0.02, vib: len >= 3, sustain: 0.8 });
+      tone(bgmBus, 'square', hz(tok), hz(tok), t, len * step * 0.95, 0.12, { lp: 1800, attack: 0.02, vib: len >= 3, sustain: 0.8 });   // vientos: cuadrada filtrada
     }
-    if (s === 0 || s === 4) tone(bgmBus, 'square', hz(ch[s ? 1 : 0]), hz(ch[s ? 1 : 0]), t, step * 2.6, 0.16, { lp: 520, attack: 0.012 });
-    if (s === 2 || s === 6) for (const n of ch[2]) tone(bgmBus, 'sawtooth', hz(n), hz(n), t, step * 1.3, 0.045, { lp: 1500, q: 1.2 });
+    if (s === 0 || s === 4) tone(bgmBus, 'triangle', hz(ch[s ? 1 : 0]), hz(ch[s ? 1 : 0]), t, step * 2.6, 0.42, { attack: 0.012 });   // bajo: triángulo
+    if (s === 2 || s === 6) for (const n of ch[2]) tone(bgmBus, 'square', hz(n), hz(n), t, step * 1.3, 0.035, { lp: 1300, q: 1.2 }); // banda a contratiempo
     if (s === 0) SYN.bombo(t, 0.6, bgmBus);
     if (s === 2 || s === 6) SYN.platillo(t, 0.4, bgmBus);
   }
@@ -240,15 +269,19 @@ window.CU = window.CU || {};
     }
   }
 
-  // Solo debe llamarse desde un gesto del usuario (toque en el menú): reanuda el contexto y arranca el bucle.
-  function startBGM() {
+  // La música queda «armada» la primera vez que el jugador pulsa Jugar (elige una leyenda). Antes de eso
+  // ningún otro toque la inicia. startBGM() arma y arranca; resumeBGM() solo reanuda si ya estaba armada.
+  let armed = false;
+  function startBGM() { armed = true; playLoop(); }
+  function resumeBGM() { if (armed) playLoop(); }
+  function playLoop() {
     if (!ready()) return;
     resume();
     const t = ac.currentTime;
     bgmBus.gain.cancelScheduledValues(t); bgmBus.gain.setValueAtTime(bgmBus.gain.value, t);
     bgmBus.gain.linearRampToValueAtTime(CFG.BGM_VOL, t + 0.5);
     if (seq.on) return;
-    seq.mode = LOOP_SAMPLES.every((n) => buffers[n]) ? 'muestras' : 'sintetizado';
+    seq.mode = buffers.bombo ? 'muestras' : 'sintetizado';                       // las voces que falten se sintetizan
     seq.on = true; seq.beat = 0; seq.next = t + 0.06;
     seq.timer = setInterval(scheduler, CFG.LOOKAHEAD_MS);
     scheduler();
@@ -292,8 +325,10 @@ window.CU = window.CU || {};
   CU.Audio = {
     CFG, PATTERN,
     preloadAudio,
-    status: () => ({ ...status, voices, bgm: seq.on ? seq.mode : 'apagado' }),
-    startBGM, stopBGM,
+    status: () => ({ ...status, voices, armed, bgm: seq.on ? seq.mode : 'apagado', leadIn: { ...leadIn },
+      durations: Object.fromEntries(Object.keys(buffers).map((k) => [k, +buffers[k].duration.toFixed(3)])) }),
+    startBGM, resumeBGM, stopBGM,
+    get usingSynthesizer() { return status.usingSynthesizer; },
     isPlayingBGM: () => seq.on,
     playCaida, playCaidaYLimpia, playPerro,
     unlock() { if (!muted && ensureContext()) resume(); },
@@ -301,7 +336,7 @@ window.CU = window.CU || {};
     toggle() {
       muted = !muted;
       try { localStorage.setItem('cu.muted', muted ? '1' : '0'); } catch { /* */ }
-      if (muted) stopBGM(0.15); else startBGM();
+      if (muted) stopBGM(0.15); else resumeBGM();
       return muted;
     },
     // efectos sin muestra propia (sintetizados)
@@ -317,7 +352,7 @@ window.CU = window.CU || {};
     lose: syn((t) => [N.E4, N.C4, N.B4 / 2, N.A3].forEach((f, i) => T('triangle', f, f, t + i * 0.18, 0.35, 0.16))),
   };
   // Compatibilidad: nombres anteriores
-  CU.Audio.playBGM = startBGM;
+  CU.Audio.playBGM = resumeBGM;
   CU.Audio.caida = playCaida;
   CU.Sfx = CU.Audio;
   window.CU_AUDIO = CU.Audio;
