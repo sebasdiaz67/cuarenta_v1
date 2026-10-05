@@ -3,7 +3,7 @@
 El juego de cartas de Quito contra cuatro leyendas de la ciudad, ambientado en las Fiestas de Quito.
 HTML5 Canvas 2D + JavaScript vanilla: **el cliente no tiene dependencias, ni módulos ES, ni archivos de imagen**. Contra la IA funciona sin conexión y con doble clic (`file://`). El modo **online 1 contra 1** usa un servidor Node (`server.js`).
 
-**Versión:** 1.6.0 · **Autor:** Byron Sebastián Rosero Díaz — Ingeniero de Software
+**Versión:** 1.7.0 · **Autor:** Byron Sebastián Rosero Díaz — Ingeniero de Software
 
 ---
 
@@ -187,8 +187,10 @@ El navegador bloquea `fetch()` de archivos locales. Para oír las muestras sirve
 | **K (Rey)** | Diablillo gordo y pícaro, cuernos rojos, corona, barba blanca y copa de canelazo |
 | **Reverso** | Telar de rombos azul y rojo (colores de Quito) con medallón solar |
 | **Perro / Tanto** | Cartas de puntos: verde con perrito / naranja con «2» y «caída por guapo · dos por shunsho» |
-| **Paño** | Fieltro verde de cantina con textura, pintado una sola vez al iniciar |
-| **Escenarios** | Cielo y siluetas de cada lugar (La Ronda, Plaza Grande, San Diego, atrio de San Francisco) con banderines de fiesta |
+| **Fondo: Centro Histórico** | Horizonte nocturno azul medianoche con la **Iglesia de San Francisco** (dos torres, cúpulas con borde dorado, portada y gradas del atrio), casas coloniales iluminadas y **El Panecillo** con la **Virgen alada** en trazo plateado y halo tenue. Se funde con un degradado en el paño verde. `CFG.FONDO = 'rival'` vuelve a las escenas de cada leyenda |
+| **Paño** | Fieltro verde de cantina con textura; fondo y paño se pintan una sola vez al iniciar (costo por fotograma = 0) |
+| **Victoria** | Cartel de cómic «¡GANASTE! ¡LA CHICA!», la frase «¡Qué bien chullita, tómate un canelazo por haber ganado!», dos copas de canelazo que brindan («¡CHIN!»), confeti y serpentinas |
+| **Banderines** | Banderines de fiesta sobre el horizonte; brasas en el atrio contra Cantuña |
 | **Retratos** | Chulla, Gallo, Padre Almeida y Cantuña (estilo de la v1.0, aún sin pasar a cartoon) |
 | **Diablillos** | Solo contra Cantuña: suben del atrio, y salen en ráfaga con chispas rojas y amarillas cuando el Diablo suma puntos |
 
@@ -246,7 +248,7 @@ Orden de carga obligatorio: `config.js` → `rules.js` → `audio.js` → `draw.
 ```
 npm i -D playwright && npx playwright install chromium
 npm test               # las 4 suites
-node tests/smoke.mjs   # 66 comprobaciones (file://, audio sintetizado)
+node tests/smoke.mjs   # 70 comprobaciones (file://, audio sintetizado)
 node tests/audio.mjs   # 21 comprobaciones (HTTP, con los MP3 reales de www/audio/)
 node tests/match.mjs   # 15: árbitro (300 partidas) + protocolo Socket.io
 node tests/online.mjs  # 15: dos navegadores reales juegan una partida completa contra server.js
@@ -275,6 +277,6 @@ Donde las fuentes difieren, la opción quedó configurable en `CU.RULES`.
 
 **Arte y música:** diseño procedural original. No reproduce barajas comerciales ni canciones protegidas.
 
-**Cuarenta: El Juicio de las Leyendas** · v1.6.0
+**Cuarenta: El Juicio de las Leyendas** · v1.7.0
 Byron Sebastián Rosero Díaz — Ingeniero de Software
 © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. Software propietario: ver [`LICENSE`](LICENSE).

@@ -2,7 +2,7 @@
  * Cuarenta: El Juicio de las Leyendas
  * Archivo: js/net.js — Conexión al servidor online (Socket.io bajo demanda) y submenú «Jugar con un Amigo»
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.6.0
+ * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.7.0
  */
 /*
  * - El cliente de Socket.io se descarga del propio servidor SOLO al entrar al modo online, desde

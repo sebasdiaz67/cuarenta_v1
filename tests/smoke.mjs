@@ -240,6 +240,22 @@ check('Siempre 40 cartas en juego (sin perder ni duplicar)', sim.maxCards === 40
 check('Se recorrieron los estados', ['REPARTIR_CARTAS', 'TURNO_JUGADOR', 'TURNO_IA', 'VALIDAR_JUGADA'].every((s) => sim.states.includes(s)), sim.states.join(','));
 check('Hubo conteo de cartón (más de un mazo o fin por cartón)', sim.states.includes('CONTEO_CARTON') || sim.decks >= 1, String(sim.decks));
 await wait(1000); await shot('04_final');
+// ---------- fondo de Quito y pantalla de victoria ----------
+const vic = await page.evaluate(async () => {
+  const d = CU._debug, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const out = { fondo: CU.CFG.FONDO, frase: CU.TEXT.victoriaFrase };
+  d.newGame(0); await sleep(200); d.game.p.score = 40; d.checkWin(); await sleep(300);
+  out.gana = { s: d.state, fiesta: CU.Draw.Victory.isOn() };
+  for (let i = 0; i < 20; i++) d.render();                                 // dibuja el cartel sin errores
+  d.newGame(0); await sleep(200); d.game.a.score = 40; d.checkWin(); await sleep(200);
+  out.pierde = { s: d.state, fiesta: CU.Draw.Victory.isOn() };
+  return out;
+});
+check('Fondo del Centro Histórico activo (CFG.FONDO = quito)', vic.fondo === 'quito');
+check('Frase de victoria literal', vic.frase === '¡Qué bien chullita, tómate un canelazo por haber ganado!', vic.frase);
+check('Victoria del jugador → cartel con confeti y canelazos', vic.gana.s === 'JUEGO_TERMINADO' && vic.gana.fiesta, JSON.stringify(vic.gana));
+check('Derrota → sin confeti', vic.pierde.s === 'JUEGO_TERMINADO' && !vic.pierde.fiesta, JSON.stringify(vic.pierde));
+
 // ---------- rendimiento: costo de render con CPU 4× más lenta (gama baja) y pool lleno ----------
 const cdp = await page.context().newCDPSession(page);
 await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });

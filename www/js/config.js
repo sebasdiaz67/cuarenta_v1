@@ -2,7 +2,7 @@
  * Cuarenta: El Juicio de las Leyendas
  * Archivo: js/config.js — Lore de las leyendas, rivales, baraja y reglas
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.6.0
+ * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.7.0
  */
 /* Solo datos: las reglas viven en rules.js y el juego en game.js. Las reglas con variantes regionales se ajustan en CU.RULES. */
 // Funciona en el navegador (window) y en Node (globalThis) para que el servidor online use las mismas reglas.
@@ -12,17 +12,18 @@
 
   CU.META = {
     name: 'Cuarenta: El Juicio de las Leyendas',
-    version: '1.6.0',
+    version: '1.7.0',
     author: 'Byron Sebastián Rosero Díaz',
     role: 'Ingeniero de Software',
     year: 2026,
-    copyright: '© 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.6.0',
+    copyright: '© 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.7.0',
   };
 
   // ------------------------------------------------------------------ motor
   CU.CFG = {
     W: 360, H: 640,            // resolución lógica (vertical)
     STEP: 1 / 60,              // paso fijo de simulación
+    FONDO: 'quito',            // 'quito' = Centro Histórico (San Francisco + Panecillo) · 'rival' = escena propia de cada leyenda
     HAND_SIZE: 5,
     CARD_W: 50, CARD_H: 72,    // carta en la mesa
     HAND_W: 60, HAND_H: 86,    // carta en la mano del jugador
@@ -185,5 +186,7 @@
     carton: 'Conteo del cartón', dosPorDar: 'Dos por dar',
     regla38: 'Con 38 solo vale la caída',
     youWin: '¡Ganaste la chica!', youLose: 'Perdiste la chica',
+    victoriaFrase: '¡Qué bien chullita, tómate un canelazo por haber ganado!',
+    victoriaTitulo: ['¡GANASTE!', '¡LA CHICA!'],
   };
 })((typeof window !== 'undefined' ? window : globalThis).CU);

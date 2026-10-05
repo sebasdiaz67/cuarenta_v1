@@ -2,7 +2,7 @@
  * Cuarenta: El Juicio de las Leyendas
  * Archivo: js/draw.js — Arte procedural cartoon: naipes quiteños, figuras satíricas, perros y tantos, escenarios y diablillos
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.6.0
+ * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.7.0
  */
 /*
  * Estilo: cartoon humorístico propio — contorno de tinta negra, colores planos saturados, caricatura quiteña.
@@ -470,6 +470,11 @@ window.CU = window.CU || {};
     }
   }
   function drawScene(rival, t) {
+    if ((CU.CFG && CU.CFG.FONDO) !== 'rival') {                // el horizonte de Quito ya está en el paño
+      if (rival.id === 'cantuna') { ctx.fillStyle = `rgba(255,90,20,${0.10 + 0.06 * Math.sin(t * 2.2)})`; ctx.fillRect(0, 140, W, 20); }   // brasas en el atrio
+      pennants(t, 8, 11);
+      return;
+    }
     const sc = rival.scene;
     const g = ctx.createLinearGradient(0, 0, 0, 92); g.addColorStop(0, sc.sky[0]); g.addColorStop(1, sc.sky[1]);
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, 92);
@@ -486,18 +491,277 @@ window.CU = window.CU || {};
     pennants(t, 8, 11);
     ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(0, 92, W, 2);
   }
+  // =====================================================================
+  //  6b. FONDO: CENTRO HISTÓRICO DE QUITO fundido con el paño
+  //      Se pinta UNA vez en el paño pre-renderizado: costo por fotograma = 0.
+  //      Franja visible y≈18–150 (entre los banderines y la mano del rival); de 135 a 215 se funde al verde.
+  // =====================================================================
+  const NIGHT = { top: '#070d24', mid: '#14204a', low: '#22346a', hill: '#0d1631', city: '#0a1128', rim: '#3a5296', lamp: '#f5c542' };
+
+  function paintSky(f) {
+    const g = f.createLinearGradient(0, 0, 0, 220);
+    g.addColorStop(0, NIGHT.top); g.addColorStop(0.55, NIGHT.mid); g.addColorStop(1, NIGHT.low);
+    f.fillStyle = g; f.fillRect(0, 0, W, 220);
+    let seed = 7; const rnd = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);   // estrellas siempre iguales
+    for (let i = 0; i < 46; i++) { f.fillStyle = `rgba(255,255,255,${0.25 + rnd() * 0.5})`; f.fillRect(rnd() * W, 22 + rnd() * 70, rnd() < 0.15 ? 1.6 : 1, rnd() < 0.15 ? 1.6 : 1); }
+  }
+
+  // El Panecillo: loma suave a la derecha, detrás de la iglesia.
+  const PANECILLO = { x: 286, y: 64 };
+  function paintPanecillo(f) {
+    f.beginPath(); f.moveTo(150, 160);
+    f.bezierCurveTo(200, 150, 238, 74, PANECILLO.x, PANECILLO.y);
+    f.bezierCurveTo(318, 58, 340, 92, W + 10, 118);
+    f.lineTo(W + 10, 170); f.closePath();
+    f.fillStyle = NIGHT.hill; f.fill();
+    f.strokeStyle = NIGHT.rim; f.lineWidth = 1.2; f.stroke();                            // línea limpia de contorno
+  }
+
+  // Virgen del Panecillo: silueta alada simplificada, trazo plateado y halo tenue.
+  function paintVirgen(f, cx, by) {
+    const halo = f.createRadialGradient(cx, by - 18, 2, cx, by - 18, 30);
+    halo.addColorStop(0, 'rgba(210,225,255,0.42)'); halo.addColorStop(1, 'rgba(210,225,255,0)');
+    f.fillStyle = halo; f.beginPath(); f.arc(cx, by - 18, 30, 0, TAU); f.fill();
+    const silver = f.createLinearGradient(cx - 14, 0, cx + 14, 0);
+    silver.addColorStop(0, '#8e9bb2'); silver.addColorStop(0.5, '#f1f5fb'); silver.addColorStop(1, '#9aa7bd');
+    f.fillStyle = silver; f.strokeStyle = 'rgba(255,255,255,0.85)'; f.lineWidth = 0.7; f.lineJoin = 'round';
+    // alas (dos curvas abiertas hacia arriba)
+    for (const side of [-1, 1]) {
+      f.beginPath(); f.moveTo(cx + side * 2, by - 22);
+      f.quadraticCurveTo(cx + side * 13, by - 34, cx + side * 15, by - 27);
+      f.quadraticCurveTo(cx + side * 11, by - 22, cx + side * 9, by - 15);
+      f.quadraticCurveTo(cx + side * 6, by - 18, cx + side * 2, by - 17); f.closePath(); f.fill(); f.stroke();
+    }
+    // manto acampanado con leve giro (danza) y cabeza
+    f.beginPath(); f.moveTo(cx - 2.5, by - 24);
+    f.quadraticCurveTo(cx - 7, by - 12, cx - 6, by - 3); f.lineTo(cx + 7, by - 3);
+    f.quadraticCurveTo(cx + 4, by - 13, cx + 2.5, by - 24); f.closePath(); f.fill(); f.stroke();
+    f.beginPath(); f.arc(cx, by - 27, 2.6, 0, TAU); f.fill(); f.stroke();
+    f.fillStyle = '#f5e7a8';                                                                // corona de estrellas
+    for (let k = -2; k <= 2; k++) { f.beginPath(); f.arc(cx + k * 2.2, by - 31.5 - (2 - Math.abs(k)) * 0.6, 0.55, 0, TAU); f.fill(); }
+    f.fillStyle = '#5d6b85'; f.beginPath(); f.ellipse(cx, by - 2, 7, 2.2, 0, 0, TAU); f.fill();   // pedestal
+  }
+
+  // Casas coloniales bajas a lo largo del horizonte, con ventanas encendidas.
+  function paintCasas(f) {
+    let seed = 3; const rnd = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
+    for (let x = -6; x < W; ) {
+      const w = 22 + rnd() * 20, h = 14 + rnd() * 14, y = 152 - h;
+      if (x > 76 && x < 232) { x += w; continue; }                                        // hueco para la iglesia
+      f.fillStyle = NIGHT.city; f.fillRect(x, y, w, h + 20);
+      f.fillStyle = '#121b3c'; f.beginPath(); f.moveTo(x - 2, y); f.lineTo(x + w / 2, y - 6); f.lineTo(x + w + 2, y); f.fill();   // tejado
+      f.strokeStyle = NIGHT.rim; f.lineWidth = 0.8; f.strokeRect(x + 0.5, y + 0.5, w - 1, h + 19);
+      f.fillStyle = 'rgba(245,197,66,0.55)';
+      for (let wx = x + 4; wx < x + w - 6; wx += 8) if (rnd() < 0.55) f.fillRect(wx, y + 5, 3, 4);
+      x += w;
+    }
+  }
+
+  // Iglesia y convento de San Francisco: fachada de piedra, dos torres simétricas, cúpula, atrio con gradas.
+  function paintSanFrancisco(f) {
+    const L = 92, R = 218, cx = (L + R) / 2, base = 150;
+    // cúpulas detrás, iluminadas sutilmente
+    for (const [dx, r] of [[0, 17], [-34, 9], [34, 9]]) {
+      const x = cx + dx, y = 70 + (r === 17 ? 0 : 10);
+      const g = f.createLinearGradient(x - r, y - r, x + r, y);
+      g.addColorStop(0, '#2a3d78'); g.addColorStop(1, NIGHT.city);
+      f.fillStyle = g; f.beginPath(); f.arc(x, y, r, Math.PI, TAU); f.fill();
+      f.strokeStyle = 'rgba(245,197,66,0.45)'; f.lineWidth = 1; f.beginPath(); f.arc(x, y, r, Math.PI * 1.08, Math.PI * 1.55); f.stroke();
+      f.fillStyle = NIGHT.city; f.fillRect(x - 2, y - r - 7, 4, 7);                        // linterna
+      f.fillStyle = 'rgba(245,197,66,0.6)'; f.fillRect(x - 1, y - r - 5, 2, 3);
+    }
+    // cuerpo central (fachada)
+    f.fillStyle = '#101a3a'; f.fillRect(L + 24, 76, R - L - 48, base - 76);
+    f.strokeStyle = NIGHT.rim; f.lineWidth = 1.2; f.strokeRect(L + 24.5, 76.5, R - L - 49, base - 76);
+    // frontón escalonado y balaustrada
+    f.fillStyle = '#101a3a'; f.beginPath(); f.moveTo(L + 24, 76); f.lineTo(cx - 14, 76); f.lineTo(cx - 14, 66); f.lineTo(cx + 14, 66); f.lineTo(cx + 14, 76); f.lineTo(R - 24, 76); f.closePath(); f.fill(); f.stroke();
+    f.strokeStyle = 'rgba(58,82,150,0.8)'; f.lineWidth = 0.8;
+    for (let x = L + 28; x < R - 24; x += 5) { f.beginPath(); f.moveTo(x, 79); f.lineTo(x, 84); f.stroke(); }
+    // columnas pareadas y portada con arco
+    for (const x of [cx - 26, cx - 20, cx + 20, cx + 26]) { f.beginPath(); f.moveTo(x, 92); f.lineTo(x, base - 6); f.stroke(); }
+    f.fillStyle = 'rgba(245,197,66,0.28)'; f.beginPath(); f.moveTo(cx - 11, base - 6); f.lineTo(cx - 11, 112); f.arc(cx, 112, 11, Math.PI, TAU); f.lineTo(cx + 11, base - 6); f.closePath(); f.fill();
+    f.strokeStyle = NIGHT.rim; f.lineWidth = 1; f.stroke();
+    f.fillStyle = 'rgba(245,197,66,0.4)'; f.beginPath(); f.arc(cx, 95, 5, 0, TAU); f.fill();   // ventana circular del coro
+    // torres simétricas: cuerpo, campanario con arcos y remate
+    for (const tx of [L, R - 26]) {
+      f.fillStyle = '#0f1836'; f.fillRect(tx, 46, 26, base - 46);
+      f.strokeStyle = NIGHT.rim; f.lineWidth = 1.2; f.strokeRect(tx + 0.5, 46.5, 25, base - 46);
+      f.fillStyle = 'rgba(245,197,66,0.42)';
+      for (const ax of [tx + 6, tx + 15]) { f.beginPath(); f.moveTo(ax, 64); f.lineTo(ax, 56); f.arc(ax + 2.5, 56, 2.5, Math.PI, TAU); f.lineTo(ax + 5, 64); f.closePath(); f.fill(); }
+      f.fillStyle = '#0f1836'; f.beginPath(); f.moveTo(tx - 1, 46); f.lineTo(tx + 13, 36); f.lineTo(tx + 27, 46); f.closePath(); f.fill(); f.stroke();
+      f.beginPath(); f.arc(tx + 13, 34, 3.5, Math.PI, TAU); f.fill(); f.stroke();
+      f.strokeStyle = '#c9d3e6'; f.lineWidth = 1; f.beginPath(); f.moveTo(tx + 13, 31); f.lineTo(tx + 13, 23); f.moveTo(tx + 10, 26); f.lineTo(tx + 16, 26); f.stroke();   // cruz
+      f.strokeStyle = 'rgba(58,82,150,0.7)'; f.beginPath(); f.moveTo(tx, 68); f.lineTo(tx + 26, 68); f.moveTo(tx, 100); f.lineTo(tx + 26, 100); f.stroke();       // cornisas
+    }
+    // atrio: gradas anchas (rasgo del atrio de San Francisco)
+    for (let i = 0; i < 3; i++) {
+      f.fillStyle = i % 2 ? '#13204a' : '#0f1a3c';
+      f.fillRect(L - 18 - i * 8, base + i * 4, R - L + 36 + i * 16, 4);
+      f.strokeStyle = 'rgba(58,82,150,0.6)'; f.lineWidth = 0.6; f.strokeRect(L - 18 - i * 8 + 0.5, base + i * 4 + 0.5, R - L + 35 + i * 16, 3);
+    }
+  }
+
+  function paintQuito(f) {
+    paintSky(f);
+    paintPanecillo(f);
+    paintVirgen(f, PANECILLO.x, PANECILLO.y);
+    paintCasas(f);
+    paintSanFrancisco(f);
+  }
+
   function buildFelt(tableTop, tableBottom) {      // paño pre-renderizado una sola vez
-    const felt = document.createElement('canvas'); felt.width = Math.ceil(W * RES); felt.height = Math.ceil(H * RES);
-    const f = felt.getContext('2d'); f.scale(RES, RES);
-    const g = f.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, H * 0.7);
+    const make = () => { const c = document.createElement('canvas'); c.width = Math.ceil(W * RES); c.height = Math.ceil(H * RES); const x = c.getContext('2d'); x.scale(RES, RES); return [c, x]; };
+    const [felt, f] = make();
+    // capa del paño
+    const [cloth, k] = make();
+    const g = k.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, H * 0.7);
     g.addColorStop(0, '#1a7a4c'); g.addColorStop(1, '#073a22');
-    f.fillStyle = g; f.fillRect(0, 0, W, H);
-    for (let i = 0; i < 2600; i++) { f.fillStyle = `rgba(${Math.random() < 0.5 ? '0,0,0' : '255,255,255'},${Math.random() * 0.05})`; f.fillRect(Math.random() * W, Math.random() * H, 1, 1); }
+    k.fillStyle = g; k.fillRect(0, 0, W, H);
+    for (let i = 0; i < 2600; i++) { k.fillStyle = `rgba(${Math.random() < 0.5 ? '0,0,0' : '255,255,255'},${Math.random() * 0.05})`; k.fillRect(Math.random() * W, Math.random() * H, 1, 1); }
+    if ((CU.CFG && CU.CFG.FONDO) !== 'rival') {
+      paintQuito(f);
+      // el paño aparece con un degradado vertical: transparente sobre la ciudad, opaco desde la mesa
+      const m = k.createLinearGradient(0, 135, 0, 215);
+      m.addColorStop(0, 'rgba(0,0,0,0)'); m.addColorStop(1, 'rgba(0,0,0,1)');
+      k.globalCompositeOperation = 'destination-in'; k.fillStyle = m; k.fillRect(0, 0, W, H);
+      k.globalCompositeOperation = 'source-over';
+    }
+    f.setTransform(1, 0, 0, 1, 0, 0); f.drawImage(cloth, 0, 0); f.setTransform(RES, 0, 0, RES, 0, 0);
     f.strokeStyle = 'rgba(245,197,66,0.25)'; f.lineWidth = 1.5; f.setLineDash([4, 4]);
     f.strokeRect(14, tableTop - 18, W - 28, tableBottom - tableTop + 36);
     return felt;
   }
 
+
+  // =====================================================================
+  //  6c. PANTALLA DE VICTORIA: cartel de cómic, copas de canelazo brindando, confeti y serpentinas
+  //      Solo cuando gana el jugador. Pool fijo (sin asignar memoria por fotograma).
+  // =====================================================================
+  const FIESTA = ['#e8162c', '#ffd23f', '#1c4fa1', '#ffffff', '#2fbf71', '#ff8a1f'];
+  const Victory = (() => {
+    const conf = Array.from({ length: 90 }, () => ({}));
+    const serp = Array.from({ length: 7 }, () => ({}));
+    let on = false, t = 0;
+    const r = (a, b) => a + Math.random() * (b - a);
+    function seedConf(c, top) {
+      c.x = r(0, W); c.y = top ? r(-H * 0.6, -10) : r(0, H); c.vy = r(45, 95); c.ph = r(0, TAU);
+      c.rot = r(0, TAU); c.vr = r(-6, 6); c.w = r(4, 7); c.h = r(2, 4); c.col = FIESTA[(Math.random() * FIESTA.length) | 0];
+    }
+    function seedSerp(sp, top) {
+      sp.x = r(10, W - 10); sp.y = top ? r(-260, -60) : r(-60, H * 0.6); sp.v = r(28, 48); sp.amp = r(6, 12);
+      sp.len = r(70, 110); sp.ph = r(0, TAU); sp.col = FIESTA[(Math.random() * FIESTA.length) | 0];
+    }
+    return {
+      start() { on = true; t = 0; conf.forEach((c) => seedConf(c, false)); serp.forEach((sp) => seedSerp(sp, false)); },
+      stop() { on = false; },
+      isOn: () => on,
+      update(dt) {
+        if (!on) return;
+        t += dt;
+        for (const c of conf) { c.y += c.vy * dt; c.x += Math.sin(t * 2 + c.ph) * 22 * dt; c.rot += c.vr * dt; if (c.y > H + 10) seedConf(c, true); }
+        for (const sp of serp) { sp.y += sp.v * dt; if (sp.y - sp.len > H) seedSerp(sp, true); }
+      },
+      // Confeti y serpentinas, siempre DETRÁS del cartel: nunca tapan la frase.
+      drawParticles() {
+        if (!on) return;
+        ctx.lineCap = 'round';
+        serp.forEach((sp) => {
+          ctx.strokeStyle = sp.col; ctx.lineWidth = 3; ctx.beginPath();
+          for (let k = 0; k <= 20; k++) {
+            const yy = sp.y - (k / 20) * sp.len, xx = sp.x + Math.sin(k * 0.6 + t * 4 + sp.ph) * sp.amp;
+            if (k) ctx.lineTo(xx, yy); else ctx.moveTo(xx, yy);
+          }
+          ctx.stroke();
+        });
+        const base = ctx.getTransform();
+        conf.forEach((c) => {
+          ctx.translate(c.x, c.y); ctx.rotate(c.rot); ctx.scale(1, Math.abs(Math.cos(t * 5 + c.ph)) * 0.8 + 0.2);   // giro 3D aparente
+          ctx.fillStyle = c.col; ctx.fillRect(-c.w / 2, -c.h / 2, c.w, c.h);
+          ctx.setTransform(base);
+        });
+      },
+      time: () => t,
+    };
+  })();
+
+  // Estallido de cómic detrás del título.
+  function burst(cx, cy, r1, r2, n, color, rot) {
+    ctx.beginPath();
+    for (let i = 0; i < n * 2; i++) {
+      const a = rot + (i * Math.PI) / n, rr = i % 2 ? r2 : r1;
+      const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr * 0.62;
+      if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+    }
+    ctx.closePath(); ctx.fillStyle = color; ctx.fill();
+    ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.stroke();
+  }
+  // Texto de cómic: tinta gruesa + sombra desplazada + relleno.
+  function comicText(str, x, y, size, fill, shadow) {
+    ctx.font = `italic 900 ${size}px system-ui, "Segoe UI", Roboto, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+    ctx.lineWidth = size * 0.22; ctx.strokeStyle = INK;
+    ctx.strokeText(str, x + size * 0.07, y + size * 0.07); ctx.fillStyle = shadow; ctx.fillText(str, x + size * 0.07, y + size * 0.07);
+    ctx.strokeText(str, x, y); ctx.fillStyle = fill; ctx.fillText(str, x, y);
+  }
+
+  // Copa de canelazo: cáliz, tallo, pie; canelazo naranja con fondo de canela, rama de canela y vapor.
+  function paintCopa(g) {
+    ink(g, 3);
+    g.beginPath(); g.moveTo(-26, -40); g.lineTo(26, -40); g.quadraticCurveTo(24, -2, 4, 6); g.lineTo(-4, 6); g.quadraticCurveTo(-24, -2, -26, -40); g.closePath();
+    fs(g, 'rgba(225,240,255,0.92)');
+    g.save(); g.clip();
+    const liq = g.createLinearGradient(0, -30, 0, 6);
+    liq.addColorStop(0, '#ffb347'); liq.addColorStop(0.45, '#ff8a1f'); liq.addColorStop(1, '#b8562a');
+    g.fillStyle = liq; g.fillRect(-30, -28, 60, 40);
+    g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(-22, -28, 44, 3);                     // brillo en la superficie
+    g.restore();
+    ink(g, 3); g.beginPath(); g.moveTo(-26, -40); g.lineTo(26, -40); g.quadraticCurveTo(24, -2, 4, 6); g.lineTo(-4, 6); g.quadraticCurveTo(-24, -2, -26, -40); g.closePath(); g.stroke();
+    g.fillStyle = 'rgba(255,255,255,0.6)'; g.beginPath(); g.ellipse(-15, -22, 3, 9, 0.2, 0, TAU); g.fill();   // reflejo del vidrio
+    g.beginPath(); g.rect(-3, 6, 6, 26); fs(g, 'rgba(225,240,255,0.92)');                     // tallo
+    g.beginPath(); g.ellipse(0, 34, 18, 5, 0, 0, TAU); fs(g, 'rgba(225,240,255,0.92)');       // pie
+    ink(g, 2.5); g.beginPath(); g.rect(8, -58, 6, 34); fs(g, '#8a4b22');                        // rama de canela
+    g.strokeStyle = '#5c2f12'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(11, -56); g.lineTo(11, -26); g.stroke();
+  }
+
+  // Cartel completo de victoria. phrase = frase quiteña literal; score = «40 – 22».
+  function drawVictoryPoster(phrase, score, titleLines) {
+    const t = Victory.time();
+    Victory.drawParticles();
+    // título gigante de cómic sobre un estallido
+    burst(W / 2, 112, 168, 132, 14, '#e8162c', t * 0.15);
+    burst(W / 2, 112, 140, 112, 14, '#ffd23f', -t * 0.1);
+    ctx.save(); ctx.translate(W / 2, 112); ctx.rotate(-0.06 + Math.sin(t * 2) * 0.015);
+    const pop = 1 + Math.max(0, 0.25 - t) * 1.6;                                               // entrada con rebote
+    ctx.scale(pop, pop);
+    comicText(titleLines[0], 0, -20, 40, '#ffffff', '#ff8a1f');
+    comicText(titleLines[1], 0, 24, 46, '#ffd23f', '#e8162c');
+    ctx.restore();
+    // dos copas de canelazo brindando: se acercan, chocan («¡chin!») y se separan
+    const cyc = (t * 0.9) % 1, near = cyc < 0.5 ? Math.sin(cyc * Math.PI * 2) : 0;   // 0 → 1 → 0 y pausa
+    const gap = 46 - near * 24, tilt = 0.18 + near * 0.12;
+    const copa = sprite('copa', 70, 110, (g) => { g.translate(0, 8); paintCopa(g); });
+    for (const side of [-1, 1]) {
+      ctx.save(); ctx.translate(W / 2 + side * gap, 262); ctx.rotate(-side * tilt);
+      // vapor del canelazo caliente
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 2;
+      for (let k = 0; k < 2; k++) { const x = -8 + k * 12, w = Math.sin(t * 3 + k + side) * 3; ctx.beginPath(); ctx.moveTo(x, -42); ctx.quadraticCurveTo(x - 4 + w, -52, x + w, -60); ctx.quadraticCurveTo(x + 4 + w, -68, x + w, -76); ctx.stroke(); }
+      ctx.drawImage(copa, -35, -55, 70, 110);
+      ctx.restore();
+    }
+    if (near > 0.85) {                                                                          // destello del choque
+      ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 3;
+      for (let k = 0; k < 8; k++) { const a = k * TAU / 8; ctx.beginPath(); ctx.moveTo(W / 2 + Math.cos(a) * 10, 224 + Math.sin(a) * 10); ctx.lineTo(W / 2 + Math.cos(a) * 20, 224 + Math.sin(a) * 20); ctx.stroke(); }
+      comicText('¡CHIN!', W / 2, 196, 16, '#ffffff', '#e8162c');
+    }
+    // la frase quiteña, literal y destacada
+    ctx.font = '800 16px system-ui, "Segoe UI", Roboto, sans-serif';
+    const lines = wrapLines(phrase, 280, '800 16px system-ui, "Segoe UI", Roboto, sans-serif');
+    const ph = 20 + lines.length * 21;
+    rr(26, 330, W - 52, ph, 12); ctx.fillStyle = '#fff8e7'; ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.stroke();
+    rr(26, 330, W - 52, ph, 12); ctx.strokeStyle = '#e8162c'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]); ctx.stroke(); ctx.setLineDash([]);
+    lines.forEach((ln, i) => txt(ln, W / 2, 330 + 20 + i * 21, 16, '#7a1020', 'center', '800', false));
+    txt(score, W / 2, 330 + ph + 24, 22, '#ffffff', 'center', '900');
+  }
 
   // =====================================================================
   //  7. «DIABLILLOS DE CANTUÑA»: sistema de partículas con pool fijo
@@ -581,6 +845,6 @@ window.CU = window.CU || {};
     setResolution(k) { if (Math.abs(k - RES) > 0.01) { RES = k; cache.clear(); } },
     cacheSize: () => cache.size,
     txt, rr, wrapLines, button, suitIcon, drawCardBack, drawCard, drawPortrait, drawScene, pennants, buildFelt,
-    drawPointCard, drawScoreMarkers, markers, ParticleSystem, Imps,
+    drawPointCard, drawScoreMarkers, markers, ParticleSystem, Imps, Victory, drawVictoryPoster,
   };
 })(window.CU);

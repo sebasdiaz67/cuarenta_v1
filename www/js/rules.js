@@ -2,7 +2,7 @@
  * Cuarenta: El Juicio de las Leyendas
  * Archivo: js/rules.js — Reglas del Cuarenta como funciones puras, compartidas por el cliente y el servidor
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.6.0
+ * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.7.0
  */
 /*
  * Un solo archivo de reglas para:

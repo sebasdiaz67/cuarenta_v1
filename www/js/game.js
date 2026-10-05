@@ -3,7 +3,7 @@
  * Archivo: js/game.js — Reglas del Cuarenta, IA, máquina de estados, entrada, composición de pantallas y bucle
  * Depende de: config.js → rules.js → audio.js → draw.js → net.js (cargados antes en index.html)
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.6.0
+ * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.7.0
  */
 (function (CU) {
   'use strict';
@@ -386,6 +386,7 @@
     Sfx.stopBGM();                       // la fanfarria de victoria/derrota no compite con la banda
     Imps.clear();
     if (isDevil() && !pWon) Imps.burst(W / 2, 250, 10, 40);
+    if (pWon && !G.abandoned) D.Victory.start(); else D.Victory.stop();   // confeti solo en la victoria del jugador
     say(pWon ? 'lose' : 'win');
     if (G.abandoned && !G.winner) { /* interrumpida: sin fanfarria */ } else if (pWon) Sfx.win(); else Sfx.lose();
     if (G.online) return;
@@ -415,6 +416,7 @@
     for (let i = fx.length - 1; i >= 0; i--) if (fx[i].life <= 0) fx.splice(i, 1);
     Imps.update(dt);
     updateFlyers(dt);
+    D.Victory.update(dt);
     if (!G) return;
     processNet();
     if (isDevil() && state !== S.JUEGO_TERMINADO) Imps.emit(dt, AMBIENT_ZONE, C.IMPS.AMBIENT_IMPS, C.IMPS.AMBIENT_SPARKS);
@@ -567,7 +569,7 @@
     }
     if (state === S.JUEGO_TERMINADO && stateTime > 0.8) {
       if (G.online) { if (inRect(p, BTN.menuOnline)) goMenu(); return; }
-      if (inRect(p, BTN.again)) { newGame(CU.RIVALS.indexOf(G.rival)); Sfx.resumeBGM(); }
+      if (inRect(p, BTN.again)) { D.Victory.stop(); newGame(CU.RIVALS.indexOf(G.rival)); Sfx.resumeBGM(); }
       else if (inRect(p, BTN.menu)) goMenu();
       return;
     }
@@ -580,7 +582,7 @@
 
   function goMenu() {
     if (G && G.online) CU.Net.leave();
-    G = null; netQueue.length = 0; Imps.clear(); setState(S.MENU); Sfx.resumeBGM();
+    G = null; netQueue.length = 0; Imps.clear(); D.Victory.stop(); setState(S.MENU); Sfx.resumeBGM();
   }
 
   // Jugada del humano: local se resuelve aquí; online se envía al servidor y se espera su veredicto.
@@ -699,6 +701,14 @@
   function drawGameOver(t) {
     ctx.fillStyle = 'rgba(0,0,0,0.72)'; ctx.fillRect(0, 0, W, H);
     const pWon = G.winner === G.p;
+    if (pWon && !G.abandoned) {                                       // victoria del jugador: cartel festivo
+      D.drawVictoryPoster(CU.TEXT.victoriaFrase, G.p.score + '  –  ' + G.a.score, CU.TEXT.victoriaTitulo);
+      if (stateTime > 0.8) {
+        if (G.online) button(BTN.menuOnline, 'Menú', true);
+        else { button(BTN.again, 'Revancha', true); button(BTN.menu, 'Menú', false); }
+      }
+      return;
+    }
     drawPortrait(G.rival, W / 2, 230, 1.8, t);
     const title = G.abandoned && !G.winner ? 'Partida interrumpida' : pWon ? CU.TEXT.youWin : CU.TEXT.youLose;
     txt(title, W / 2, 320, 26, pWon ? '#ffe066' : G.abandoned && !G.winner ? '#fbf3e4' : '#ff9f8f');
@@ -777,5 +787,5 @@
   requestAnimationFrame((t) => { last = t; frame(t); });
 
   // Gancho para pruebas automatizadas.
-  CU._debug = { S, get state() { return state; }, get game() { return G; }, get frames() { return frames; }, newGame, playCard, aiChoose, setState, render, flyPoints, humanPlay, netQueue };
+  CU._debug = { S, get state() { return state; }, get game() { return G; }, get frames() { return frames; }, newGame, playCard, aiChoose, setState, render, flyPoints, humanPlay, netQueue, checkWin };
 })(window.CU);

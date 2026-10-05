@@ -2,7 +2,7 @@
  * Cuarenta: El Juicio de las Leyendas
  * Archivo: server.js — Servidor online (Express + Socket.io) con árbitro autoritativo
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.6.0
+ * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.7.0
  */
 /*
  * Uso:   npm install && npm start            → http://localhost:8080 (sirve también el juego de www/)
