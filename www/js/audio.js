@@ -2,7 +2,7 @@
  * Cuarenta: El Juicio de las Leyendas
  * Archivo: js/audio.js — Motor de audio: sampler + secuenciador «Banda de Pueblo Dicembrina» + efectos de jugada
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * Módulo de audio por muestras v1.2.0 · Juego v1.7.0
+ * Módulo de audio por muestras v1.3.0 · Juego v1.7.0
  * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados.
  */
 /*
@@ -58,6 +58,7 @@ window.CU = window.CU || {};
     bombo: 'bombo', platillo: 'platillo', vientos: 'vientos_pasacalle',
     latigo: 'latigo', risa: 'risa_diablo', perro: 'perro_ladrido',
     piano: 'fondo_chulla_piano',   // música de fondo (recorte de 63 s de chulla_quiteño_piano.mp3)
+    barajear: 'barajear',          // riffle de la baraja al empezar cada reparto
   };
 
   // Patrón por tiempo del compás (4 tiempos). Editable: [muestra, ganancia].
@@ -211,6 +212,7 @@ window.CU = window.CU || {};
     vientos: (t, v, bus) => { for (const f of [220, 277.2, 329.6]) tone(bus, 'square', f, f, t, 0.3, 0.06 * v, { lp: 1400, attack: 0.012 }); },   // cuadrada filtrada
     latigo: (t, v, bus) => { noise(bus, t, 0.09, 0.9 * v, 'highpass', 2500); tone(bus, 'sine', 110, 45, t, 0.25, 0.8 * v); },
     risa: (t, v, bus) => { for (let k = 0; k < 4; k++) tone(bus, 'sawtooth', 190 - k * 12, 150 - k * 12, t + k * 0.13, 0.11, 0.18 * v, { lp: 900 }); },
+    barajear: (t, v, bus) => { for (let k = 0; k < 9; k++) noise(bus, t + k * 0.035, 0.03, 0.18 * v, 'bandpass', 2500 + k * 120); },   // riffle sintetizado
     perro: (t, v, bus) => { for (let k = 0; k < 2; k++) { tone(bus, 'square', 620, 330, t + k * 0.16, 0.09, 0.14 * v, { lp: 2200 }); noise(bus, t + k * 0.16, 0.06, 0.12 * v, 'bandpass', 1200); } },
   };
   // Dispara la muestra; si no está cargada, su equivalente sintetizado.
@@ -342,6 +344,8 @@ window.CU = window.CU || {};
     hit('risa', t + 0.18, 0.9);                                                   // carcajada justo tras el latigazo
   }
   function playPerro() { if (!ready()) return; resume(); hit('perro', now(), 1); }
+  // Al empezar cada reparto: barajear.mp3 una sola vez (no por carta: 10 riffles encimados serían ruido).
+  function playBarajear() { if (!ready()) return; resume(); hit('barajear', now(), 0.9); }
 
   // =====================================================================
   //  API PÚBLICA
@@ -360,7 +364,7 @@ window.CU = window.CU || {};
     startBGM, resumeBGM, stopBGM,
     get usingSynthesizer() { return status.usingSynthesizer; },
     isPlayingBGM: () => bgmOn,
-    playCaida, playCaidaYLimpia, playPerro,
+    playCaida, playCaidaYLimpia, playPerro, playBarajear,
     unlock() { if (!muted && ensureContext()) resume(); },
     isMuted: () => muted,
     toggle() {
@@ -370,7 +374,7 @@ window.CU = window.CU || {};
       return muted;
     },
     // efectos sin muestra propia (sintetizados)
-    deal: syn((t) => Z(t, 0.05, 0.25, 'highpass', 3000)),
+    deal: syn((t) => { if (!buffers.barajear) Z(t, 0.05, 0.25, 'highpass', 3000); }),   // con barajear.mp3 el reparto ya suena
     select: syn((t) => T('triangle', 880, 880, t, 0.06, 0.12)),
     place: syn((t) => { Z(t, 0.08, 0.35, 'bandpass', 1200, 500); T('sine', 180, 90, t, 0.08, 0.25); }),
     capture: syn((t) => Z(t, 0.25, 0.3, 'bandpass', 600, 3000)),

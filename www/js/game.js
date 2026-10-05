@@ -146,6 +146,7 @@
         for (const who of [mano, otro]) for (let i = 0; i < 5; i++) G.dealQueue.push({ who, card: who === G.p ? mine[i] : mkHidden() });
         G.deck = new Array(e.deckCount + G.dealQueue.length).fill(null);  // solo para mostrar cuántas quedan
         G.dealTimer = 0;
+        Sfx.playBarajear();
         setState(S.REPARTIR_CARTAS);
         break;
       }
@@ -211,6 +212,7 @@
   function clearLastPlayed() { G.lastPlayedCard = null; G.lastPlayedBy = null; }
 
   function startDeal() {
+    Sfx.playBarajear();                                      // sonido de barajear al empezar cada reparto
     G.dealQueue = [];
     if (!R.CAIDA_ENTRE_REPARTOS) clearLastPlayed();       // cada mano empieza sin caída pendiente
     // se reparte de 5 en 5: primero al que no da (la «mano»)

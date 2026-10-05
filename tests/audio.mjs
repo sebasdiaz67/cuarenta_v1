@@ -43,10 +43,11 @@ const sleep = (ms) => page.waitForTimeout(ms);
 
 await page.goto(url);
 const st = await page.evaluate(() => CU_AUDIO.preloadAudio().then(() => CU_AUDIO.status()));
-check('preloadAudio(): 6 MP3 decodificados (incluido el piano)', ['bombo', 'platillo', 'latigo', 'risa', 'perro', 'piano'].every((n) => st.loaded.includes(n)), JSON.stringify(st.loaded));
+check('preloadAudio(): 7 MP3 decodificados (piano y barajear incluidos)', ['bombo', 'platillo', 'latigo', 'risa', 'perro', 'piano', 'barajear'].every((n) => st.loaded.includes(n)), JSON.stringify(st.loaded));
+check('barajear.mp3: salta su silencio inicial (~0.1 s)', st.leadIn.barajear > 0.05 && st.leadIn.barajear < 0.15, String(st.leadIn.barajear));
 check('Piano recortado: dura ≈ 63 s', Math.abs(st.durations.piano - 63) < 0.1, String(st.durations.piano));
 check('Falta vientos_pasacalle.mp3: detectado sin romper la carga', st.missing.join() === 'vientos' && st.usingSynthesizer === false, JSON.stringify(st.missing));
-check('Menú informa «Mixto (6/7 muestras)»', st.mode === 'Mixto (6/7 muestras)', st.mode);
+check('Menú informa «Mixto (7/8 muestras)»', st.mode === 'Mixto (7/8 muestras)', st.mode);
 check('Silencio inicial detectado (látigo ≈ 0.21 s; resto ≈ 20 ms de retardo MP3)', Math.abs(st.leadIn.latigo - 0.21) < 0.03 && st.leadIn.bombo < 0.03, JSON.stringify(st.leadIn));
 
 // --- la música solo arranca con «Jugar»
@@ -57,7 +58,8 @@ await page.evaluate(() => { window.__starts.length = 0; window.__osc.length = 0;
 await page.mouse.click(row.x, row.y); await sleep(150);          // «🤖 Jugar contra la IA» (misma altura)
 await page.mouse.click(row.x, row.y);                              // «Jugar» contra el Chulla
 await sleep(1500);
-const pz = await page.evaluate(() => ({ st: CU_AUDIO.status(), loops: window.__starts.filter((x) => x.loop) }));
+const pz = await page.evaluate(() => ({ st: CU_AUDIO.status(), loops: window.__starts.filter((x) => x.loop), shuffles: window.__starts.filter((x) => x.d === CU_AUDIO.status().durations.barajear) }));
+check('Al repartir suena barajear.mp3 una vez (no por carta)', pz.shuffles.length === 1 && pz.shuffles[0].off > 0.05, JSON.stringify(pz.shuffles));
 check('Pulsar Jugar → fondo = piano en bucle nativo', pz.st.armed && pz.st.bgm === 'piano' && pz.loops.length === 1, JSON.stringify({ bgm: pz.st.bgm, loops: pz.loops.length }));
 check('Bucle del piano: desde el fin del silencio inicial hasta 63.0 s', pz.st.pianoLoop && pz.st.pianoLoop.loop && pz.st.pianoLoop.end === 63 && pz.st.pianoLoop.start > 0.3 && pz.st.pianoLoop.start < 0.45, JSON.stringify(pz.st.pianoLoop));
 check('Con piano no corre el secuenciador de banda', !pz.loops.length || !(await page.evaluate(() => window.__starts.some((x) => x.d === CU_AUDIO.status().durations.bombo))));
