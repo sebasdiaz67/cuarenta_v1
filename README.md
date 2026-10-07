@@ -3,7 +3,7 @@
 El juego de cartas de Quito contra cuatro leyendas de la ciudad, ambientado en las Fiestas de Quito.
 HTML5 Canvas 2D + JavaScript vanilla: **el cliente no tiene dependencias, ni módulos ES, ni archivos de imagen**. Contra la IA funciona sin conexión y con doble clic (`file://`). El modo **online 1 contra 1** usa un servidor Node (`server.js`).
 
-**Versión:** 1.8.0 · **Autor:** Byron Sebastián Rosero Díaz — Ingeniero de Software
+**Versión:** 1.9.0 · **Autor:** Byron Sebastián Rosero Díaz — Ingeniero de Software
 
 ---
 
@@ -274,7 +274,7 @@ Cubren:
 
 ## Fuentes y autoría
 **Reglas:**
-- Manual «Reglas para jugar 40» (`docs/40.Rules.es.pdf`) — fuente principal desde v1.8.0
+- Manual «Reglas para jugar 40» (`docs/40.Rules.es.pdf`) — fuente principal desde v1.9.0
 - Tabletopia — «Reglas del 40»: https://c.tabletopia.com/games/cuarenta/rules/reglas-del-40/es
 - play40.app — Reglas del Cuarenta: https://play40.app/rules
 
@@ -282,6 +282,6 @@ Donde las fuentes difieren, la opción quedó configurable en `CU.RULES`.
 
 **Arte y música:** diseño procedural original. No reproduce barajas comerciales ni canciones protegidas.
 
-**Cuarenta: El Juicio de las Leyendas** · v1.8.0
+**Cuarenta: El Juicio de las Leyendas** · v1.9.0
 Byron Sebastián Rosero Díaz — Ingeniero de Software
 © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. Software propietario: ver [`LICENSE`](LICENSE).

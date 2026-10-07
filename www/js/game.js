@@ -3,7 +3,7 @@
  * Archivo: js/game.js — Reglas del Cuarenta, IA, máquina de estados, entrada, composición de pantallas y bucle
  * Depende de: config.js → rules.js → audio.js → draw.js → net.js (cargados antes en index.html)
  * Autor: Byron Sebastián Rosero Díaz — Ingeniero de Software
- * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.8.0
+ * © 2026 Byron Sebastián Rosero Díaz. Ingeniero de Software. Todos los derechos reservados. v1.9.0
  */
 (function (CU) {
   'use strict';
@@ -83,6 +83,11 @@
   let G = null;            // partida
   const fx = [];           // textos y partículas
   let menuHover = -1;
+
+  // Modo de asistencia (spec 008): Aprendizaje = con pistas (vista previa de la jugada);
+  // Experto = sin pistas. Es preferencia local del cliente (no se envía al servidor) y persiste.
+  let assist = (() => { try { return localStorage.getItem('cu.assist') !== '0'; } catch { return true; } })();
+  function setAssist(v) { assist = !!v; try { localStorage.setItem('cu.assist', assist ? '1' : '0'); } catch { /* localStorage no disponible */ } }
 
   function setState(s) { state = s; stateTime = 0; }
 
@@ -592,6 +597,7 @@
     sound: { x: 14, y: 600, w: 104, h: 26 },
     again: { x: 70, y: 476, w: 104, h: 40 },
     menu: { x: 186, y: 476, w: 104, h: 40 },
+    mode: { x: 80, y: 548, w: 200, h: 34 },     // selector Aprendizaje/Experto (menú principal, zona libre bajo el lore)
   };
   const inRect = (p, r) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
 
@@ -600,6 +606,7 @@
     if (state === S.LOBBY) return;                           // el submenú online (HTML) recibe los toques
     if (state === S.MENU) {
       if (inRect(p, BTN.sound)) { Sfx.toggle(); return; }
+      if (inRect(p, BTN.mode)) { setAssist(!assist); Sfx.select(); return; }
       if (inRect(p, BTN.ia)) { Sfx.select(); setState(S.MENU_IA); return; }
       if (inRect(p, BTN.online)) { Sfx.select(); setState(S.LOBBY); CU.Lobby.open(); return; }
       return;
@@ -684,6 +691,11 @@
 
   function drawPreview() {
     if (!G.selected || state !== S.TURNO_JUGADOR) return;
+    if (!assist) {                                           // modo experto: sin pistas, solo el aviso de confirmación
+      for (const c of G.table) c.hl = false;
+      txt('Toca otra vez para jugar', W / 2, 478, 11, 'rgba(255,255,255,0.8)', 'center', '700', false);
+      return;
+    }
     const cap = Rules.findCapture(G.selected, G.table, lastPlayedBy(G.a));
     for (const c of G.table) c.hl = cap ? cap.taken.includes(c) : false;
     let msg = 'Se queda en la mesa', col = 'rgba(255,255,255,0.85)';
@@ -810,6 +822,9 @@
       button(BTN.online, '🤝  Jugar con un Amigo (Online)', false);
       wrapLines(CU.TEXT.lore, 290, '500 10px system-ui, sans-serif').slice(0, 4)
         .forEach((ln, i) => txt(ln, W / 2, 420 + i * 15, 10, 'rgba(251,243,228,0.8)', 'center', '500', false));
+      // selector de modo (spec 008): Aprendizaje muestra pistas; Experto las oculta
+      button(BTN.mode, 'Modo: ' + (assist ? 'Aprendizaje' : 'Experto'), false);
+      txt(assist ? 'Con pistas: te muestra qué levanta cada carta' : 'Sin pistas: juega a ciegas, como en la mesa', W / 2, 594, 9, 'rgba(251,243,228,0.7)', 'center', '600', false);
     } else {
     button(BTN.back, '‹ Volver', false);
     txt('Elige tu rival', W / 2, 240, 12, '#f5c542', 'center', '800');
@@ -856,5 +871,5 @@
   requestAnimationFrame((t) => { last = t; frame(t); });
 
   // Gancho para pruebas automatizadas.
-  CU._debug = { S, get state() { return state; }, get game() { return G; }, get frames() { return frames; }, newGame, playCard, aiChoose, setState, render, flyPoints, humanPlay, netQueue, checkWin };
+  CU._debug = { S, get state() { return state; }, get game() { return G; }, get frames() { return frames; }, get assist() { return assist; }, setAssist, newGame, playCard, aiChoose, setState, render, flyPoints, humanPlay, netQueue, checkWin };
 })(window.CU);

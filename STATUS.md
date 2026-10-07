@@ -1,7 +1,7 @@
 # STATUS — cuarenta
 
-**Última actualización:** 2026-10-04
-**Estado general:** v1.8.0 — Juego completo contra 4 leyendas + modo online 1 contra 1 con servidor autoritativo (probado en local). Sin desplegar ni empaquetar.
+**Última actualización:** 2026-10-06
+**Estado general:** v1.9.0 — Juego completo contra 4 leyendas + modo online 1 contra 1 con servidor autoritativo (probado en local) + modo de asistencia (Aprendizaje/Experto). Sin desplegar ni empaquetar.
 
 ## Features
 | Spec | Estado | Notas |
@@ -13,13 +13,15 @@
 | [006-fondo-quito-victoria](specs/006-fondo-quito-victoria/spec.md) | Implementada | smoke 70/70 · render p95 1.8 ms |
 | [005-multijugador-online](specs/005-multijugador-online/spec.md) | Implementada (local) | match 15/15 · online E2E 15/15 |
 | [004-audio-muestras](specs/004-audio-muestras/spec.md) | Implementada · falta 1 muestra | audio 15/15 (MP3 reales) · smoke 53/53 |
+| [008-modo-asistencia](specs/008-modo-asistencia/spec.md) | Implementada (alcance acotado) | smoke 83/83 · Aprendizaje (con pistas) / Experto (sin pistas) |
 
 ## Próximos pasos (priorizados)
 0. Desplegar `server.js` (HTTPS) y poner la URL en `CU.NET.SERVER_URL`; probar con dos celulares en redes distintas.
-1. Probar en celular real: legibilidad de cartas y dificultad de cada leyenda.
-2. Spec 007 — Retratos de las leyendas en el mismo estilo cartoon (hoy desentonan con las cartas).
-3. Spec 006 — Variar el patrón de banda por leyenda y efectos propios de cada rival.
-4. Spec 007 — Elegir qué suma levantar cuando hay varias; modo «2 de 3 chicas»; estadísticas.
+1. Probar en celular real: legibilidad de cartas y dificultad de cada leyenda (incluido el modo Experto).
+2. **Spec 009 (decisión pendiente del plan)** — Captura manual con validación de jugada legal en modo Experto (hoy las capturas son automáticas); definir qué pasa cuando el jugador NO ve una captura posible. Estimado 4–8 h.
+3. **Modo historia** — 5 niveles (Chulla, Gallo, Almeida, Cantuña, Diablo), cuentos ilustrados, reglas especiales, finales bueno/malo; cada nivel en JSON. (Ver plan personal 2026-10-06.)
+4. Spec 007 — Retratos de las leyendas en el mismo estilo cartoon (hoy desentonan con las cartas).
+5. Spec 006 — Variar el patrón de banda por leyenda y efectos propios de cada rival.
 
 ## Bloqueos / pendientes del usuario
 - Elegir hosting para el servidor online (Render, Railway, VPS…).
@@ -47,3 +49,4 @@
 - 2026-10-05 — v1.7.0: fondo del Centro Histórico (San Francisco, Panecillo y Virgen) fundido con el paño; cartel de victoria con canelazos, confeti y la frase «¡Qué bien chullita…!». Smoke 70/70, match 15/15, audio 21/21, online 15/15.
 - 2026-10-05 — v1.7.1: sonido barajear.mp3 al empezar cada reparto (el usuario lo reemplazó luego por una versión de 0.70 s).
 - 2026-10-05 — v1.8.0: reglas alineadas con el manual (docs/40.Rules.es.pdf): 2 de 3 chicas, escalera solo desde la igual, ronda > 30 bloqueada, sobrantes retiradas, dos por dar al siguiente, dos por falla, 4 caídas seguidas, zapatería. Smoke 80/80, match 15/15, online 16/16, audio 23/23.
+- 2026-10-06 — v1.9.0 (spec 008): modo de asistencia Aprendizaje/Experto, seleccionable en el menú principal y persistido en `localStorage` (`cu.assist`). Experto oculta las pistas (`drawPreview`): sin resaltado ni texto «Levanta…». Hallazgo: las capturas son automáticas, así que ocultar las pistas no toca reglas (la captura manual queda para spec 009). Smoke 83/83, match 15/15, online 16/16, audio 23/23. Verificado en el navegador (ambos modos).

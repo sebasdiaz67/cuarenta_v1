@@ -182,6 +182,33 @@ if ((await page.evaluate(() => CU._debug.state)) === 'TURNO_JUGADOR') {
   check('Segundo toque juega (VALIDAR_JUGADA)', after.s === 'VALIDAR_JUGADA' && after.n === 4, JSON.stringify(after));
 }
 
+// ---------- spec 008: modo de asistencia (Aprendizaje con pistas vs. Experto sin pistas) ----------
+const asst = await page.evaluate(async () => {
+  const d = CU._debug, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  d.newGame(0);
+  while (d.state !== 'TURNO_JUGADOR' && d.state !== 'TURNO_IA') await sleep(20);
+  const G = d.game, deck = CU.Rules.makeDeck(), card = (r, s) => deck.find((c) => c.rank.id === r && c.suit.id === s);
+  const pos = (c, x, y) => Object.assign(c, { x, y, faceUp: true });
+  const cincoMesa = pos(card('5', 'espada'), 180, 300), cincoMano = pos(card('5', 'oro'), 180, 538);
+  G.table = [cincoMesa]; G.lastPlayedCard = null; G.lastPlayedBy = null;
+  G.p.hand = [cincoMano]; G.selected = cincoMano; d.setState('TURNO_JUGADOR');
+  const out = {};
+  d.setAssist(true); d.render();
+  out.aprendizajeHl = G.table.some((c) => c.hl);
+  try { out.lsAprendizaje = localStorage.getItem('cu.assist'); } catch { out.lsAprendizaje = 'err'; }
+  d.setAssist(false); d.render();
+  out.expertoHl = G.table.some((c) => c.hl);
+  try { out.lsExperto = localStorage.getItem('cu.assist'); } catch { out.lsExperto = 'err'; }
+  out.assistGetter = d.assist;
+  d.setAssist(true);                                     // restaurar el valor por defecto
+  d.newGame(3);                                          // dejar una partida limpia contra Cantuña para los bloques siguientes
+  while (d.state !== 'TURNO_JUGADOR' && d.state !== 'TURNO_IA') await sleep(20);
+  return out;
+});
+check('Aprendizaje: seleccionar una carta con captura resalta la mesa (hay pista)', asst.aprendizajeHl === true, JSON.stringify(asst));
+check('Experto: la misma selección NO resalta ninguna carta (sin pista)', asst.expertoHl === false, JSON.stringify(asst));
+check('El modo persiste en localStorage (cu.assist): 1 = Aprendizaje, 0 = Experto', asst.lsAprendizaje === '1' && asst.lsExperto === '0' && asst.assistGetter === false, JSON.stringify(asst));
+
 // ---------- spec 002: música, lanzamiento flotante y diablillos ----------
 const v2 = await page.evaluate(async () => {
   const d = CU._debug, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
