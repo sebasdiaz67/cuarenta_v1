@@ -49,15 +49,15 @@ window.CU = window.CU || {};
     HORIZON_S: 0.12,               // cuánto agenda por delante
     MAX_VOICES: 24,                // polifonía máxima simultánea
     BGM_VOL: 0.5, SFX_VOL: 0.9,
-    PIANO_VOL: 0.9,                // el piano viene ~11 dB más bajo que los golpes: se compensa aquí
-    PIANO_LOOP_END: 63,            // s: el fondo se repite cada 1 min 3 s (cae en una pausa natural de la pieza)
+    PIANO_VOL: 0.3,               // nivel de la música de fondo
+    PIANO_LOOP_END: null,          // s donde reinicia el bucle del fondo; null = canción completa (loopEnd = duración)
     VIENTOS_MAX_S: null,           // recorte opcional del fragmento de vientos (s); null = suena completo
   };
   // nombre lógico → archivo (sin extensión)
   const SAMPLES = {
     bombo: 'bombo', platillo: 'platillo', vientos: 'vientos_pasacalle',
     latigo: 'latigo', risa: 'risa_diablo', perro: 'perro_ladrido',
-    piano: 'fondo_chulla_piano',   // música de fondo (recorte de 63 s de chulla_quiteño_piano.mp3)
+    piano: 'music_8_bit',          // música de fondo (tema 8-bit, se repite en bucle completo)
     barajear: 'barajear',          // riffle de la baraja al empezar cada reparto
   };
 
@@ -278,7 +278,7 @@ window.CU = window.CU || {};
   // La música queda «armada» la primera vez que el jugador pulsa Jugar (elige una leyenda). Antes de eso
   // ningún otro toque la inicia. startBGM() arma y arranca; resumeBGM() solo reanuda si ya estaba armada.
   //
-  // Fondo, por prioridad: 1) piano (fondo_chulla_piano.mp3) en bucle  2) banda con muestras  3) pasacalle sintetizado.
+  // Fondo, por prioridad: 1) tema de fondo (music_8_bit.mp3) en bucle  2) banda con muestras  3) pasacalle sintetizado.
   let armed = false, bgmOn = false;
   const piano = { src: null };
   function startBGM() { armed = true; playLoop(); }
@@ -296,14 +296,14 @@ window.CU = window.CU || {};
     bgmOn = true;
     if (buffers.piano) startPiano(); else startSeq();
   }
-  // Piano: UN solo AudioBufferSourceNode con loop nativo del hilo de audio (sin huecos ni temporizadores JS).
-  // Repite el tramo [silencio inicial … 63 s]; el corte cae en la pausa de 62.5–63 s de la pieza.
+  // Fondo: UN solo AudioBufferSourceNode con loop nativo del hilo de audio (sin huecos ni temporizadores JS).
+  // Repite la canción completa [silencio inicial … fin]; con PIANO_LOOP_END se puede recortar el punto de reinicio.
   function startPiano() {
     const buf = buffers.piano, src = ac.createBufferSource();
     src.buffer = buf;
     src.loop = true;
     src.loopStart = leadIn.piano || 0;
-    src.loopEnd = Math.min(CFG.PIANO_LOOP_END, buf.duration);
+    src.loopEnd = CFG.PIANO_LOOP_END ? Math.min(CFG.PIANO_LOOP_END, buf.duration) : buf.duration;
     src.connect(bgmBus);
     src.start(ac.currentTime + 0.05, src.loopStart);
     src.onended = () => { src.disconnect(); if (piano.src === src) piano.src = null; };   // liberación al detener

@@ -17,7 +17,7 @@ let blockPiano = false;                                     // 2.ª corrida: sin
 const server = http.createServer(async (req, res) => {
   const u = decodeURIComponent(new URL(req.url, 'http://x').pathname);
   if (u === '/favicon.ico') { res.writeHead(204); res.end(); return; }
-  if (blockPiano && u.endsWith('fondo_chulla_piano.mp3')) { notFound.push(u); res.writeHead(404); res.end(); return; }
+  if (blockPiano && u.endsWith('music_8_bit.mp3')) { notFound.push(u); res.writeHead(404); res.end(); return; }
   const file = path.join(root, 'www', u === '/' ? 'index.html' : u);
   try { const b = await readFile(file); res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' }); res.end(b); }
   catch { notFound.push(u); res.writeHead(404); res.end(); }
@@ -45,7 +45,7 @@ await page.goto(url);
 const st = await page.evaluate(() => CU_AUDIO.preloadAudio().then(() => CU_AUDIO.status()));
 check('preloadAudio(): 7 MP3 decodificados (piano y barajear incluidos)', ['bombo', 'platillo', 'latigo', 'risa', 'perro', 'piano', 'barajear'].every((n) => st.loaded.includes(n)), JSON.stringify(st.loaded));
 check('barajear.mp3: salta su silencio inicial (~0.1 s)', st.leadIn.barajear > 0.05 && st.leadIn.barajear < 0.15, String(st.leadIn.barajear));
-check('Piano recortado: dura ≈ 63 s', Math.abs(st.durations.piano - 63) < 0.1, String(st.durations.piano));
+check('Fondo 8-bit: canción completa (≈ 152 s, no recortada)', st.durations.piano > 150 && st.durations.piano < 154, String(st.durations.piano));
 check('Falta vientos_pasacalle.mp3: detectado sin romper la carga', st.missing.join() === 'vientos' && st.usingSynthesizer === false, JSON.stringify(st.missing));
 check('Menú informa «Mixto (7/8 muestras)»', st.mode === 'Mixto (7/8 muestras)', st.mode);
 check('Silencio inicial detectado (látigo ≈ 0.21 s; resto ≈ 20 ms de retardo MP3)', Math.abs(st.leadIn.latigo - 0.21) < 0.03 && st.leadIn.bombo < 0.03, JSON.stringify(st.leadIn));
@@ -61,7 +61,7 @@ await sleep(1500);
 const pz = await page.evaluate(() => ({ st: CU_AUDIO.status(), loops: window.__starts.filter((x) => x.loop), shuffles: window.__starts.filter((x) => x.d === CU_AUDIO.status().durations.barajear) }));
 check('Al repartir suena barajear.mp3 una vez (no por carta)', pz.shuffles.length === 1 && pz.shuffles[0].off > 0.05, JSON.stringify(pz.shuffles));
 check('Pulsar Jugar → fondo = piano en bucle nativo', pz.st.armed && pz.st.bgm === 'piano' && pz.loops.length === 1, JSON.stringify({ bgm: pz.st.bgm, loops: pz.loops.length }));
-check('Bucle del piano: desde el fin del silencio inicial hasta 63.0 s', pz.st.pianoLoop && pz.st.pianoLoop.loop && pz.st.pianoLoop.end === 63 && pz.st.pianoLoop.start > 0.3 && pz.st.pianoLoop.start < 0.45, JSON.stringify(pz.st.pianoLoop));
+check('Bucle del fondo: canción completa (loopEnd ≈ duración, sin corte)', pz.st.pianoLoop && pz.st.pianoLoop.loop && Math.abs(pz.st.pianoLoop.end - pz.st.durations.piano) < 0.5 && pz.st.pianoLoop.start === pz.st.leadIn.piano && pz.st.pianoLoop.start >= 0, JSON.stringify(pz.st.pianoLoop));
 check('Con piano no corre el secuenciador de banda', !pz.loops.length || !(await page.evaluate(() => window.__starts.some((x) => x.d === CU_AUDIO.status().durations.bombo))));
 await page.evaluate(() => CU_AUDIO.stopBGM(0.05)); await sleep(400);
 check('stopBGM() detiene y libera el piano', await page.evaluate(() => CU_AUDIO.status().bgm === 'apagado' && CU_AUDIO.status().pianoLoop === null));
@@ -116,7 +116,7 @@ check('playPerro() → perro_ladrido.mp3', fx.perro.length === 1 && fx.perro[0].
 check('onended libera todas las voces', fx.freed === 0, String(fx.freed));
 check('Tope de polifonía (≤ 24 con 80 disparos)', fx.peak <= 24, String(fx.peak));
 check('Con el cupo lleno, el ladrido igual suena (roba la voz más vieja)', fx.enJuego.includes(fx.D.perro), fx.enJuego.join());
-const only404 = notFound.every((u) => u === '/audio/vientos_pasacalle.mp3' || u === '/audio/fondo_chulla_piano.mp3');
+const only404 = notFound.every((u) => u === '/audio/vientos_pasacalle.mp3' || u === '/audio/music_8_bit.mp3');
 check('404 solo de vientos (y del piano bloqueado a propósito); sin otros errores', only404 && errors.every((e) => /404/.test(e)) && errors.length === notFound.length, JSON.stringify({ notFound, errors }));
 
 await browser.close(); server.close();
